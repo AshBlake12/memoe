@@ -1,0 +1,20 @@
+name: cxl_measured_4ch
+hbm:
+  name: HBM3e
+  capacity_gb: 80.0
+  bandwidth_gbs: 3350.0
+  latency_ns: 350.0
+  measured: false
+cxl:
+  name: CXL Type-3, 4x DDR4-3200 channels
+  capacity_gb: 2048.0
+  bandwidth_gbs: 67.5
+  latency_ns: 300.0
+  measured: false
+  note: "SCALED, not measured. 4x the measured single-channel 16.88 GB/s.
+    DRAMSim3's multi-channel runs did not scale (4 channels gave 17.5 GB/s
+    against 16.9 for one, with requests interleaved perfectly across
+    channels), so the aggregate issue path is starved rather than the
+    channels being saturated. Independent channels do scale linearly in
+    hardware, so we scale the single-channel measurement and label it."
+note: "Upper bracket. Bandwidth is scaled from measurement, not measured."

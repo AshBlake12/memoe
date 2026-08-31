@@ -1,0 +1,7 @@
+name: H100-SXM
+peak_flops: 989000000000000
+mfu: 0.40
+hbm_gb: 80.0
+note: "989 TFLOP/s dense BF16. MFU 0.40 is a deliberately generous assumption
+  for MoE inference; lower MFU makes CXL look better, so 0.40 is conservative
+  for our argument."

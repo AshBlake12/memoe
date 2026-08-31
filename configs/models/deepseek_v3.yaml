@@ -1,0 +1,16 @@
+name: DeepSeek-V3
+d_model: 7168
+d_ff_expert: 2048
+n_experts: 256
+top_k: 8
+n_layers: 61
+n_moe_layers: 58
+n_shared_experts: 1
+d_ff_dense: 18432
+n_heads: 128
+n_kv_heads: 128
+d_head: 128
+vocab_size: 129280
+dtype_bytes: 2.0
+note: "671B total / 37B active. 58 MoE layers, first 3 blocks dense."
+nonexpert_params_override: 14200000000

@@ -1,0 +1,78 @@
+=== kernel ===
+6.8.0-138-generic
+=== CXL topology ===
+[
+  {
+    "memdevs":[
+      {
+        "memdev":"mem0",
+        "ram_size":"2.00 GiB (2.15 GB)",
+        "serial":"0",
+        "host":"0000:0d:00.0"
+      }
+    ]
+  },
+  {
+    "root decoders":[
+      {
+        "decoder":"decoder0.0",
+        "resource":"0x490000000",
+        "size":"2.00 GiB (2.15 GB)",
+        "interleave_ways":1,
+        "max_available_extent":"2.00 GiB (2.15 GB)",
+        "pmem_capable":true,
+        "volatile_capable":true,
+        "accelmem_capable":true,
+        "nr_targets":1,
+        "targets":[
+          {
+            "target":"pci0000:0c",
+            "alias":"ACPI0016:00",
+            "position":0,
+            "id":"0xc"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "port decoders":[
+      {
+        "decoder":"decoder1.0",
+        "resource":"0x490000000",
+        "size":"2.00 GiB (2.15 GB)",
+        "interleave_ways":1,
+        "nr_targets":1,
+        "targets":[
+          {
+            "target":"0000:0c:00.0",
+            "position":0,
+            "id":"0"
+          }
+        ]
+      }
+    ]
+  }
+]
+=== region commit failure ===
+cxl region: create_region: region0: failed to commit decode: No such device or address
+cxl region: cmd_create_region: created 0 regions
+=== kernel diagnosis ===
+[    1.836761] acpi ACPI0016:00: _OSC: OS supports [CXL11PortRegAccess CXL20PortDevRegAccess CXLProtocolErrorReporting CXLNativeHot]
+[    1.843026] acpi ACPI0016:00: _OSC: OS now controls [CXLMemErrorReporting]
+[   22.475357]  pci0000:0c: host supports CXL
+[  127.195850] cxl region0: Failed to synchronize CPU cache state
+[  127.196932] WARNING: CPU: 0 PID: 1054 at drivers/cxl/core/region.c:131 commit_store+0x1fe/0x210 [cxl_core]
+[  127.197440] Modules linked in: qrtr cfg80211 isofs kvm_amd cxl_pmem ccp ppdev cxl_mem binfmt_misc kvm cxl_pci irqbypass i2c_i801 parport_pc i2c_smbus nls_iso8859_1 parport cxl_acpi cxl_port lpc_ich cxl_core input_leds mac_hid serio_raw sch_fq_codel dm_multipath msr efi_pstore nfnetlink dmi_sysfs qemu_fw_cfg ip_tables x_tables autofs4 btrfs blake2b_generic raid10 raid456 async_raid6_recov async_memcpy async_pq async_xor async_tx xor raid6_pq libcrc32c raid1 raid0 vga16fb vgastate psmouse ahci bochs libahci drm_vram_helper drm_ttm_helper ttm crypto_simd cryptd
+[  127.198722] CPU: 0 PID: 1054 Comm: cxl Not tainted 6.8.0-138-generic #138-Ubuntu
+[  127.199088] RIP: 0010:commit_store+0x1fe/0x210 [cxl_core]
+[  135.605425] cxl region0: Failed to synchronize CPU cache state
+[  135.605516] WARNING: CPU: 0 PID: 1058 at drivers/cxl/core/region.c:131 commit_store+0x1fe/0x210 [cxl_core]
+[  135.605623] Modules linked in: qrtr cfg80211 isofs kvm_amd cxl_pmem ccp ppdev cxl_mem binfmt_misc kvm cxl_pci irqbypass i2c_i801 parport_pc i2c_smbus nls_iso8859_1 parport cxl_acpi cxl_port lpc_ich cxl_core input_leds mac_hid serio_raw sch_fq_codel dm_multipath msr efi_pstore nfnetlink dmi_sysfs qemu_fw_cfg ip_tables x_tables autofs4 btrfs blake2b_generic raid10 raid456 async_raid6_recov async_memcpy async_pq async_xor async_tx xor raid6_pq libcrc32c raid1 raid0 vga16fb vgastate psmouse ahci bochs libahci drm_vram_helper drm_ttm_helper ttm crypto_simd cryptd
+[  135.606021] CPU: 0 PID: 1058 Comm: cxl Tainted: G        W          6.8.0-138-generic #138-Ubuntu
+[  135.606055] RIP: 0010:commit_store+0x1fe/0x210 [cxl_core]
+[  195.071894] cxl region0: Failed to synchronize CPU cache state
+[  195.072078] WARNING: CPU: 0 PID: 1071 at drivers/cxl/core/region.c:131 commit_store+0x1fe/0x210 [cxl_core]
+[  195.072569] Modules linked in: qrtr cfg80211 isofs kvm_amd cxl_pmem ccp ppdev cxl_mem binfmt_misc kvm cxl_pci irqbypass i2c_i801 parport_pc i2c_smbus nls_iso8859_1 parport cxl_acpi cxl_port lpc_ich cxl_core input_leds mac_hid serio_raw sch_fq_codel dm_multipath msr efi_pstore nfnetlink dmi_sysfs qemu_fw_cfg ip_tables x_tables autofs4 btrfs blake2b_generic raid10 raid456 async_raid6_recov async_memcpy async_pq async_xor async_tx xor raid6_pq libcrc32c raid1 raid0 vga16fb vgastate psmouse ahci bochs libahci drm_vram_helper drm_ttm_helper ttm crypto_simd cryptd
+[  195.073531] CPU: 0 PID: 1071 Comm: cxl Tainted: G        W          6.8.0-138-generic #138-Ubuntu
+[  195.073599] RIP: 0010:commit_store+0x1fe/0x210 [cxl_core]

@@ -1,0 +1,15 @@
+name: Qwen3-235B-A22B
+d_model: 4096
+d_ff_expert: 1536
+n_experts: 128
+top_k: 8
+n_layers: 94
+n_moe_layers: 94
+n_shared_experts: 0
+d_ff_dense: 0
+n_heads: 64
+n_kv_heads: 4
+d_head: 128
+vocab_size: 151936
+dtype_bytes: 2.0
+note: "Fine-grained MoE, 22B active of 235B total"

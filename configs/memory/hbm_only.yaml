@@ -1,0 +1,8 @@
+name: hbm_only
+hbm:
+  name: HBM3e
+  capacity_gb: 80.0
+  bandwidth_gbs: 3350.0
+  latency_ns: 350.0
+  measured: true
+note: "Baseline. No expansion tier: the whole checkpoint must fit in aggregate HBM."

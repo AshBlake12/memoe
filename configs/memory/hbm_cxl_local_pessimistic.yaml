@@ -1,0 +1,15 @@
+name: hbm_cxl_local_pessimistic
+hbm:
+  name: HBM3e
+  capacity_gb: 80.0
+  bandwidth_gbs: 3350.0
+  latency_ns: 350.0
+  measured: true
+cxl:
+  name: CXL 2.0 Type-3 (direct-attached, low end)
+  capacity_gb: 512.0
+  bandwidth_gbs: 18.0
+  latency_ns: 400.0
+  measured: true
+  note: "Low end of the measured 18-52 GB/s sustained range."
+note: "Sensitivity bound: same capacity, worst measured bandwidth."

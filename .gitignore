@@ -1,0 +1,10 @@
+__pycache__/
+*.pyc
+.venv/
+venv/
+*.egg-info/
+traces/*.parquet
+traces/data/
+results/gem5/
+*.tgz
+*.log

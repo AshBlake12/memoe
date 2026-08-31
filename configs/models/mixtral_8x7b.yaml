@@ -1,0 +1,15 @@
+name: Mixtral-8x7B
+d_model: 4096
+d_ff_expert: 14336
+n_experts: 8
+top_k: 2
+n_layers: 32
+n_moe_layers: 32
+n_shared_experts: 0
+d_ff_dense: 0
+n_heads: 32
+n_kv_heads: 8
+d_head: 128
+vocab_size: 32000
+dtype_bytes: 2.0
+note: "Few, very large experts - the opposite design point from fine-grained MoE"

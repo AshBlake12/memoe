@@ -1,0 +1,15 @@
+name: OLMoE-1B-7B
+d_model: 2048
+d_ff_expert: 1024
+n_experts: 64
+top_k: 8
+n_layers: 16
+n_moe_layers: 16
+n_shared_experts: 0
+d_ff_dense: 0
+n_heads: 16
+n_kv_heads: 16
+d_head: 128
+vocab_size: 50304
+dtype_bytes: 2.0
+note: "allenai/OLMoE-1B-7B-0924-Instruct - open checkpoint used for real trace capture"

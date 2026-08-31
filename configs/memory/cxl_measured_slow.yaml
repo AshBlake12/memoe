@@ -1,0 +1,18 @@
+name: cxl_measured_slow
+hbm:
+  name: HBM3e
+  capacity_gb: 80.0
+  bandwidth_gbs: 3350.0
+  latency_ns: 350.0
+  measured: false
+cxl:
+  name: CXL Type-3, 1x DDR4-1866 channel
+  capacity_gb: 512.0
+  bandwidth_gbs: 12.76
+  latency_ns: 358.0
+  measured: true
+  note: "MEASURED with DRAMSim3, DDR4_8Gb_x8_1866.ini. 12.76 GB/s = 85.5% of
+    the 14.9 GB/s peak; efficiency is HIGHER at the slow grade because
+    tRC/tFAW/refresh do not scale with the data rate. Device latency
+    237.9 ns + 120 ns link = 358 ns."
+note: "Pessimistic bracket, fully measured."

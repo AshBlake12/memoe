@@ -1,0 +1,238 @@
+\documentclass[10pt,twocolumn]{article}
+\usepackage[margin=0.75in]{geometry}
+\usepackage{amsmath,amssymb,booktabs,graphicx,microtype,url}
+\usepackage[hidelinks]{hyperref}
+\usepackage{caption}
+\captionsetup{font=small,labelfont=bf}
+\usepackage{titlesec}
+\titleformat{\section}{\large\bfseries}{\thesection}{0.6em}{}
+\titleformat{\subsection}{\normalsize\bfseries}{\thesubsection}{0.6em}{}
+\graphicspath{{../results/figures/}}
+\setlength{\parskip}{0.15em}
+
+\title{\vspace{-2.5em}\textbf{MEMoE: When Does CXL Memory Expansion Actually\\
+Help Mixture-of-Experts Inference?}\vspace{-0.4em}}
+\author{Shashank \quad Shreyansh Jain \quad Kanav Sharma\\
+\small Team King Bob \quad$\cdot$\quad Nebula 2026\vspace{-1.2em}}
+\date{}
+
+\begin{document}
+\maketitle
+
+\begin{abstract}
+\noindent
+Mixture-of-Experts checkpoints are 93--98\% expert weights, and any one token
+touches a small fraction of them. That makes expert weights the obvious
+candidate for demotion to CXL-attached memory. We build an analytical footprint
+model, a routing-trace generator, and a trace-driven simulator of a two-tier
+HBM+CXL expert store, and we use them to ask when the demotion actually pays.
+The answer is narrower than the premise suggests. Batching amortises the fetch
+across tokens, but past a few hundred tokens a batch touches \emph{every}
+expert at \emph{every} layer, at which point the HBM tier is no longer a cache
+but a fixed partition whose cold half is refetched on every batch. We derive a
+closed form for the batch size $B^\ast$ above which the fetch is hidden behind
+compute, show that it is independent of both expert size and GPU count, and
+show that it is governed almost entirely by the hit rate of the hot tier. We
+then show that static popularity placement matches or beats LRU and LFU in this
+regime, and that a depth-8 speculative prefetch of the head of the cold tail
+removes the remaining stall entirely at batch 2048. All CXL figures use
+published measured sustained bandwidth; pooled-CXL results are labelled as
+modelled throughout.
+\end{abstract}
+
+\section{Motivation}
+
+A Mixture-of-Experts layer replaces one feed-forward network with $E$ of them
+and routes each token to $k \ll E$. Capacity grows with $E$; compute grows with
+$k$. DeepSeek-V3 has 671\,B parameters and activates 37\,B per token. The
+consequence for memory is stark: Table~\ref{tab:footprint} shows that routed
+experts are 93--98\% of the weights across four checkpoints spanning two orders
+of magnitude in size, and that our footprint model reproduces the published
+total and active parameter counts, which is the check that licenses everything
+downstream.
+
+Those weights sit idle. At any instant a token is using $k/E$ of them, which is
+$3\%$ for DeepSeek-V3. Yet they occupy HBM, the scarcest and most expensive
+memory in the system, and they set the GPU count purely by capacity rather than
+by compute (Table~\ref{tab:capacity}, Fig.~\ref{fig:gpu}). CXL Type-3 expansion
+offers 512\,GB or more per node at roughly a fiftieth of HBM bandwidth. The
+question this paper answers is whether that trade is ever worth making.
+
+\input{generated_tables}
+
+\section{Method}
+
+\paragraph{Footprint model.} Each routed expert is a gated FFN,
+$3 d_{\text{model}} d_{\text{ff}}$ parameters. We derive the expert pool, the
+pinned non-expert remainder, and the per-token active set from YAML
+descriptions of each checkpoint, and validate against published counts.
+
+\paragraph{Routing traces.} A trace records the top-$k$ expert indices per
+token per layer. We synthesise traces with a controllable Zipf exponent $s$
+using the Gumbel-top-$k$ trick, which draws exactly $k$ distinct experts per
+token from a categorical distribution, vectorised over the batch. We also ship
+architecture-agnostic forward hooks that capture the same structure from a real
+checkpoint by matching router module names and verifying output width against
+the expert count.
+
+\paragraph{Simulator.} Expert instances are addressed as (layer, expert). A
+placement policy decides which live in HBM; the rest live in CXL. For each
+layer of each batch we compute the distinct experts required, split them into
+hits and misses, cover what a speculative prefetch could have fetched within
+its window, and charge the remainder against the compute of the tokens that
+did hit:
+\[
+\text{stall} = \max\!\left(0,\; \frac{n_{\text{demand}} S}{BW} + n_{\text{demand}}\ell
+- t_{\text{layer}}\, f_{\text{hit}}\right)
+\]
+with $t_{\text{layer}} = 6 d_{\text{model}} d_{\text{ff}} (k + k_{\text{shared}})
+B / F$. CXL bandwidth and capacity scale with the GPU count, since each node
+carries its own attachment.
+
+\paragraph{Honesty constraints.} CXL bandwidth is always drawn from the
+published measured sustained range of 18--52\,GB/s, never the theoretical link
+rate; a unit test enforces this. CXL 3.0 pooling is pre-production, so any
+configuration using it is flagged and every result derived from it carries a
+modelled annotation. Bandwidth points above 52\,GB/s in
+Table~\ref{tab:bandwidth} are marked extrapolated. Our compute model counts
+routed-expert GEMMs only, so attention and dense layers would hide more
+transfer than we credit and the reported overheads are conservative.
+
+\section{Batching amortises, then stops}
+
+Per-token CXL traffic falls as roughly $1/B$, because an expert is fetched once
+per batch and used by many tokens (Fig.~\ref{fig:batch}, left). This is the
+observation the project began from, and it is correct.
+
+The reason it stops falling is more consequential. Table~\ref{tab:coverage}
+gives the fraction of experts touched per layer per batch. At $B=256$ it is
+$1.0$ for OLMoE and Mixtral and $0.99$ for Qwen3; by $B=1024$ every model
+touches everything. Once coverage saturates, the resident set is not a cache in
+any useful sense. There is no recency to exploit, no reuse distance to shorten.
+Every non-resident expert is fetched on every batch, forever. The only thing
+that matters is which experts are on which side of the partition, which is why
+Section~\ref{sec:policy} finds that a placement decided once at load time is
+not merely adequate but optimal.
+
+\section{The critical batch size}
+
+Setting the per-layer stall below $\varepsilon$ times the per-layer compute and
+solving for $B$ gives
+\begin{equation}
+B^\ast = \frac{(1-h)\, E\, F}{BW \cdot k \cdot \varepsilon}
+\label{eq:bstar}
+\end{equation}
+where $h$ is the fraction of expert \emph{fetches} avoided by the hot tier.
+Two properties of Eq.~\ref{eq:bstar} are worth stating plainly.
+
+First, $B^\ast$ is independent of expert size $S$. A larger expert costs
+proportionally more to fetch and does proportionally more work once fetched;
+the two cancel exactly. Mixtral's 336\,MB experts are not the problem people
+assume they are.
+
+Second, $B^\ast$ is independent of GPU count, because compute and per-node CXL
+bandwidth both scale with the deployment. Scaling out does not buy a way past
+the constraint.
+
+What remains is the hit rate, and it enters linearly.
+Table~\ref{tab:critical} makes the design requirement concrete: at $h=0.9$,
+even OLMoE needs a batch of 61\,k tokens, which is not a serving regime. At
+$h=0.99$ it needs 6\,k, which is reachable in a large prefill. DeepSeek-V3
+needs $h=0.999$ before it enters the same range. Decode-sized batches never
+qualify, for any model here. Table~\ref{tab:crossover} confirms this
+empirically against the simulator, and Fig.~\ref{fig:crossover} shows the
+crossing.
+
+The practical reading is that expert offload over CXL is a prefill technique,
+not a decode technique, and that the entire engineering problem reduces to
+building a hot tier with a very high fetch hit rate.
+
+\section{What sets the hit rate}
+\label{sec:policy}
+
+The ceiling on hit rate at a given capacity is the popularity coverage curve
+(Fig.~\ref{fig:coverage}): the fraction of routings served by keeping the
+hottest $x\%$ of experts. Its shape is set by router skew, and
+Table~\ref{tab:skew} shows the whole approach standing or falling on that
+skew. At $s=0$, uniform routing, a 50\% resident tier serves 50\% of routings
+and tiering buys exactly its capacity fraction. Every positive result in this
+paper is contingent on real routers being skewed, and load-balancing losses
+used during MoE training push directly against skew. Measuring this on a real
+checkpoint is the most important experiment we have not yet run, and the hooks
+exist for it.
+
+Given a coverage curve, the policy question is what to keep. We compare static
+popularity placement, a per-layer-quota variant, LRU, and sampled LFU. At
+serving batch sizes the static policies match or beat the dynamic ones, for the
+reason given above: with full coverage there is no recency signal left. This is
+a fortunate result for CXL specifically, because a static placement is decided
+once at load time and costs nothing on the critical path, whereas an LRU over
+tens of thousands of expert slots would not be implementable there anyway.
+
+\section{Prefetching the cold tail}
+
+The residual stall comes from cold experts that are needed anyway. A
+prefetcher can hide it if it names them early enough. Prefetching the
+\emph{hottest} experts is useless, since those are exactly what the hot tier
+already holds; the prefetcher must target the head of the cold tail.
+Table~\ref{tab:prefetch} and Fig.~\ref{fig:prefetch} show the effect at 90\%
+residency and batch 2048: OLMoE falls from 2.03 to zero overhead at depth 4
+with a 10\% width, and Qwen3-235B from 4.98 to zero at depth 8. Depth widens
+the transfer window linearly, and beyond the point where the window covers the
+predicted set, further depth is free but useless.
+
+This prefetcher uses only a static popularity prior. A predictor conditioned on
+layer $L-1$ routing should do better, and we have not built one.
+
+\section{Threats to validity}
+
+Traces are synthetic, Zipf $s=1.0$ with mild drift; this is the weakest
+assumption in the work and Section~\ref{sec:policy} quantifies how much rests
+on it. Pooled CXL 3.0 numbers are modelled, as no shipping switch silicon
+exists to measure. We model bandwidth and capacity but not contention, so
+concurrent KV-cache traffic over the same link is unaccounted for. The compute
+model omits attention and dense layers, which makes our overheads conservative.
+Finally, we simulate a placement and transfer model, not a kernel: a real
+implementation must also solve overlap scheduling and allocator fragmentation,
+neither of which we address.
+
+\section{Conclusion}
+
+CXL memory expansion for MoE inference is not the general capacity win the
+framing invites. It is a prefill-regime technique whose viability is set by a
+single closed-form condition, Eq.~\ref{eq:bstar}, in which the hot-tier hit
+rate is the only lever with orders of magnitude in it. Within that regime the
+right design is unglamorous and cheap: static popularity placement decided at
+load time, plus a deep speculative prefetch aimed at the head of the cold tail.
+Whether the regime is reachable at all depends on how skewed real routers are,
+which is a measurement, not an argument.
+
+\begin{figure}[t]\centering
+\includegraphics[width=\linewidth]{f2_batch_amortisation.png}
+\caption{Left: per-token CXL traffic falls as $1/B$. Right: the reason it stops
+is that coverage saturates at 100\% of experts.}
+\label{fig:batch}\end{figure}
+
+\begin{figure}[t]\centering
+\includegraphics[width=\linewidth]{f3_crossover.png}
+\caption{Stall overhead against batch size at fixed residency. Dashed line is
+10\% overhead.}
+\label{fig:crossover}\end{figure}
+
+\begin{figure}[t]\centering
+\includegraphics[width=0.92\linewidth]{f1_coverage.png}
+\caption{Popularity coverage: the ceiling on hit rate at a given HBM capacity.}
+\label{fig:coverage}\end{figure}
+
+\begin{figure}[t]\centering
+\includegraphics[width=0.92\linewidth]{f5_prefetch.png}
+\caption{Speculative prefetch of the head of the cold tail, 90\% residency,
+batch 2048.}
+\label{fig:prefetch}\end{figure}
+
+\begin{figure}[t]\centering
+\includegraphics[width=0.92\linewidth]{f8_gpu_reduction.png}
+\caption{GPUs required to hold the weights, with and without CXL expansion.}
+\label{fig:gpu}\end{figure}
+
+\end{document}

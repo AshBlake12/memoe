@@ -1,0 +1,17 @@
+name: hbm_cxl_pooled
+hbm:
+  name: HBM3e
+  capacity_gb: 80.0
+  bandwidth_gbs: 3350.0
+  latency_ns: 350.0
+  measured: true
+cxl:
+  name: CXL 3.0 pooled (switched)
+  capacity_gb: 2048.0
+  bandwidth_gbs: 40.0
+  latency_ns: 600.0
+  measured: false
+  note: "MODELED. CXL 3.0 memory pooling is pre-production; there is no
+    shipping switch silicon to measure. Latency >500 ns assumed for a
+    switch hop. Treat every pooled number in this project as projected."
+note: "Rack-scale pooling. Results using this config are modeled, not measured."

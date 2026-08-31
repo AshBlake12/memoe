@@ -1,0 +1,28 @@
+name: cxl_measured
+hbm:
+  name: HBM3e
+  capacity_gb: 80.0
+  bandwidth_gbs: 3350.0
+  latency_ns: 350.0
+  measured: false
+  note: "Vendor specification. DRAMSim3 cannot characterise HBM-class memory:
+    its trace CPU is single-issue, capping observable bandwidth at 64 B/tCK
+    = 64 GB/s for HBM2, and our run hit 98.4% of that ceiling. HBM bandwidth
+    does not enter the stall model, so this is not load-bearing."
+cxl:
+  name: CXL Type-3, 1x DDR4-3200 channel
+  capacity_gb: 512.0
+  bandwidth_gbs: 16.88
+  latency_ns: 300.0
+  measured: true
+  note: "MEASURED with DRAMSim3, DDR4_8Gb_x8_3200.ini, 12 MiB sequential
+    expert-fetch trace, 196608 reads. Sustained 16.88 GB/s = 65.9% of the
+    25.6 GB/s theoretical peak. Mean interarrival was 6.02 cycles, inside
+    the column-delay window set by tCCD_S=4 and tCCD_L=8 for this config,
+    consistent with a sequential stream alternating between bank groups.
+    The stream is therefore column-delay bound, not queue bound.
+    Device read latency measured at 179.4 ns under load; +120 ns assumed
+    for CXL controller and link hop gives ~300 ns, inside the published
+    200-400 ns range."
+note: "Calibrated against DRAMSim3. Conservative: 16.88 GB/s sits just below
+  the published 18-52 GB/s measured CXL band."

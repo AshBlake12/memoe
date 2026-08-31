@@ -1,0 +1,200 @@
+[
+  {
+    "channels": 1,
+    "tCK_ns": 1.07,
+    "reads": 196608,
+    "sustained_gbs": 12.76,
+    "latency_ns": 237.9,
+    "issue_ceiling_gbs": 59.8,
+    "issue_limited": false,
+    "grade": "DDR4-1866",
+    "requested_channels": 1
+  },
+  {
+    "channels": 2,
+    "tCK_ns": 1.07,
+    "reads": 196608,
+    "sustained_gbs": 13.05,
+    "latency_ns": 235.4,
+    "issue_ceiling_gbs": 59.8,
+    "issue_limited": false,
+    "grade": "DDR4-1866",
+    "requested_channels": 2
+  },
+  {
+    "channels": 4,
+    "tCK_ns": 1.07,
+    "reads": 196608,
+    "sustained_gbs": 13.33,
+    "latency_ns": 235.4,
+    "issue_ceiling_gbs": 59.8,
+    "issue_limited": false,
+    "grade": "DDR4-1866",
+    "requested_channels": 4
+  },
+  {
+    "channels": 1,
+    "tCK_ns": 0.94,
+    "reads": 196608,
+    "sustained_gbs": 13.24,
+    "latency_ns": 228.9,
+    "issue_ceiling_gbs": 68.1,
+    "issue_limited": false,
+    "grade": "DDR4-2133",
+    "requested_channels": 1
+  },
+  {
+    "channels": 2,
+    "tCK_ns": 0.94,
+    "reads": 196608,
+    "sustained_gbs": 13.5,
+    "latency_ns": 227.3,
+    "issue_ceiling_gbs": 68.1,
+    "issue_limited": false,
+    "grade": "DDR4-2133",
+    "requested_channels": 2
+  },
+  {
+    "channels": 4,
+    "tCK_ns": 0.94,
+    "reads": 196608,
+    "sustained_gbs": 13.79,
+    "latency_ns": 227.3,
+    "issue_ceiling_gbs": 68.1,
+    "issue_limited": false,
+    "grade": "DDR4-2133",
+    "requested_channels": 4
+  },
+  {
+    "channels": 1,
+    "tCK_ns": 0.83,
+    "reads": 196608,
+    "sustained_gbs": 14.96,
+    "latency_ns": 202.9,
+    "issue_ceiling_gbs": 77.1,
+    "issue_limited": false,
+    "grade": "DDR4-2400",
+    "requested_channels": 1
+  },
+  {
+    "channels": 2,
+    "tCK_ns": 0.83,
+    "reads": 196608,
+    "sustained_gbs": 15.25,
+    "latency_ns": 201.8,
+    "issue_ceiling_gbs": 77.1,
+    "issue_limited": false,
+    "grade": "DDR4-2400",
+    "requested_channels": 2
+  },
+  {
+    "channels": 4,
+    "tCK_ns": 0.83,
+    "reads": 196608,
+    "sustained_gbs": 15.58,
+    "latency_ns": 201.8,
+    "issue_ceiling_gbs": 77.1,
+    "issue_limited": false,
+    "grade": "DDR4-2400",
+    "requested_channels": 4
+  },
+  {
+    "channels": 1,
+    "tCK_ns": 0.75,
+    "reads": 196608,
+    "sustained_gbs": 15.29,
+    "latency_ns": 197.3,
+    "issue_ceiling_gbs": 85.3,
+    "issue_limited": false,
+    "grade": "DDR4-2666",
+    "requested_channels": 1
+  },
+  {
+    "channels": 2,
+    "tCK_ns": 0.75,
+    "reads": 196608,
+    "sustained_gbs": 15.49,
+    "latency_ns": 198.0,
+    "issue_ceiling_gbs": 85.3,
+    "issue_limited": false,
+    "grade": "DDR4-2666",
+    "requested_channels": 2
+  },
+  {
+    "channels": 4,
+    "tCK_ns": 0.75,
+    "reads": 196608,
+    "sustained_gbs": 15.83,
+    "latency_ns": 198.0,
+    "issue_ceiling_gbs": 85.3,
+    "issue_limited": false,
+    "grade": "DDR4-2666",
+    "requested_channels": 4
+  },
+  {
+    "channels": 1,
+    "tCK_ns": 0.68,
+    "reads": 196608,
+    "sustained_gbs": 15.65,
+    "latency_ns": 192.9,
+    "issue_ceiling_gbs": 94.1,
+    "issue_limited": false,
+    "grade": "DDR4-2933",
+    "requested_channels": 1
+  },
+  {
+    "channels": 2,
+    "tCK_ns": 0.68,
+    "reads": 196608,
+    "sustained_gbs": 15.9,
+    "latency_ns": 192.0,
+    "issue_ceiling_gbs": 94.1,
+    "issue_limited": false,
+    "grade": "DDR4-2933",
+    "requested_channels": 2
+  },
+  {
+    "channels": 4,
+    "tCK_ns": 0.68,
+    "reads": 196608,
+    "sustained_gbs": 16.24,
+    "latency_ns": 192.0,
+    "issue_ceiling_gbs": 94.1,
+    "issue_limited": false,
+    "grade": "DDR4-2933",
+    "requested_channels": 4
+  },
+  {
+    "channels": 1,
+    "tCK_ns": 0.63,
+    "reads": 196608,
+    "sustained_gbs": 16.88,
+    "latency_ns": 179.4,
+    "issue_ceiling_gbs": 101.6,
+    "issue_limited": false,
+    "grade": "DDR4-3200",
+    "requested_channels": 1
+  },
+  {
+    "channels": 2,
+    "tCK_ns": 0.63,
+    "reads": 196608,
+    "sustained_gbs": 17.12,
+    "latency_ns": 179.2,
+    "issue_ceiling_gbs": 101.6,
+    "issue_limited": false,
+    "grade": "DDR4-3200",
+    "requested_channels": 2
+  },
+  {
+    "channels": 4,
+    "tCK_ns": 0.63,
+    "reads": 196608,
+    "sustained_gbs": 17.49,
+    "latency_ns": 179.2,
+    "issue_ceiling_gbs": 101.6,
+    "issue_limited": false,
+    "grade": "DDR4-3200",
+    "requested_channels": 4
+  }
+]

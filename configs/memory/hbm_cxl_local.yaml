@@ -1,0 +1,16 @@
+name: hbm_cxl_local
+hbm:
+  name: HBM3e
+  capacity_gb: 80.0
+  bandwidth_gbs: 3350.0
+  latency_ns: 350.0
+  measured: true
+cxl:
+  name: CXL 2.0 Type-3 (direct-attached)
+  capacity_gb: 512.0
+  bandwidth_gbs: 52.0
+  latency_ns: 300.0
+  measured: true
+  note: "Sustained bandwidth from published CXL 2.0 measurements (18-52 GB/s
+    range); 52 GB/s is the optimistic end. Latency 200-400 ns, ~2-3x DRAM."
+note: "Direct-attached expansion. Available on shipping hardware today."

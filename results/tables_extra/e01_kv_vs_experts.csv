@@ -1,0 +1,13 @@
+model,tier,bw_gbs,balance_flops_per_byte,kv_intensity,kv_bandwidth_bound,kv_slowdown_vs_hbm,kv_KB_per_token,batch_for_expert_parity
+OLMoE-1B-7B,HBM3e,3350.0,118,1.0,True,1.0,128.0,945
+OLMoE-1B-7B,CXL 1ch,16.88,23436,1.0,True,198.5,128.0,187489
+OLMoE-1B-7B,CXL 4ch,67.5,5861,1.0,True,49.6,128.0,46886
+Mixtral-8x7B,HBM3e,3350.0,118,4.0,True,1.0,128.0,473
+Mixtral-8x7B,CXL 1ch,16.88,23436,4.0,True,198.5,128.0,93745
+Mixtral-8x7B,CXL 4ch,67.5,5861,4.0,True,49.6,128.0,23443
+Qwen3-235B-A22B,HBM3e,3350.0,118,16.0,True,1.0,188.0,1890
+Qwen3-235B-A22B,CXL 1ch,16.88,23436,16.0,True,198.5,188.0,374977
+Qwen3-235B-A22B,CXL 4ch,67.5,5861,16.0,True,49.6,188.0,93772
+DeepSeek-V3,HBM3e,3350.0,118,1.0,True,1.0,3904.0,3359
+DeepSeek-V3,CXL 1ch,16.88,23436,1.0,True,198.5,3904.0,666625
+DeepSeek-V3,CXL 4ch,67.5,5861,1.0,True,49.6,3904.0,166706

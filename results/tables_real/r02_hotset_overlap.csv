@@ -1,0 +1,21 @@
+frac,a,b,overlap,chance,kind
+0.25,prose[1st half],prose[2nd half],0.75,0.25,within-domain control
+0.25,math[1st half],math[2nd half],0.9492,0.25,within-domain control
+0.25,code[1st half],code[2nd half],0.8984,0.25,within-domain control
+0.25,chat[1st half],chat[2nd half],0.7969,0.25,within-domain control
+0.25,prose,math,0.3594,0.25,cross-domain
+0.25,prose,code,0.1523,0.25,cross-domain
+0.25,prose,chat,0.3477,0.25,cross-domain
+0.25,math,code,0.5,0.25,cross-domain
+0.25,math,chat,0.3008,0.25,cross-domain
+0.25,code,chat,0.1836,0.25,cross-domain
+0.5,prose[1st half],prose[2nd half],0.8613,0.5,within-domain control
+0.5,math[1st half],math[2nd half],0.9492,0.5,within-domain control
+0.5,code[1st half],code[2nd half],0.916,0.5,within-domain control
+0.5,chat[1st half],chat[2nd half],0.873,0.5,within-domain control
+0.5,prose,math,0.6113,0.5,cross-domain
+0.5,prose,code,0.4512,0.5,cross-domain
+0.5,prose,chat,0.5918,0.5,cross-domain
+0.5,math,code,0.5723,0.5,cross-domain
+0.5,math,chat,0.5957,0.5,cross-domain
+0.5,code,chat,0.4219,0.5,cross-domain

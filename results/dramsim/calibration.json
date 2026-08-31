@@ -1,0 +1,16 @@
+[
+  {
+    "label": "CXL tier (DDR4-3200)",
+    "channels": 1,
+    "reads": 196608,
+    "sustained_gbs": 16.88,
+    "loaded_latency_ns": 179.4
+  },
+  {
+    "label": "HBM tier (HBM2)",
+    "channels": 8,
+    "reads": 196609,
+    "sustained_gbs": 63.0,
+    "loaded_latency_ns": 61.4
+  }
+]
