@@ -1,0 +1,19 @@
+Linux ubuntu 6.8.0 #1 SMP PREEMPT_DYNAMIC Wed Sep  2 02:39:10 IST 2026 x86_64 x86_64 x86_64 GNU/Linux
+--- region0 ---
+commit=1
+resource=0x490000000
+size=0x80000000
+interleave_ways=1
+target0=decoder2.0
+mode=ram
+--- decoder2.0 ---
+mode=ram
+dpa_size=0x0000000080000000
+dpa_resource=0x0
+--- dmesg ---
+[    0.000000] Command line: root=/dev/vda1 console=ttyS0 rootwait cxl_acpi.dyndbg=+p cxl_core.dyndbg=+p
+[    0.074583] Kernel command line: root=/dev/vda1 console=ttyS0 rootwait cxl_acpi.dyndbg=+p cxl_core.dyndbg=+p
+[    1.122458] acpi ACPI0016:00: _OSC: OS supports [CXL11PortRegAccess CXL20PortDevRegAccess]
+[    1.124593] acpi ACPI0016:00: _OSC: OS now controls [CXLMemErrorReporting]
+[    1.178506]  pci0000:0c: host supports CXL
+[  552.354561] cxl region0: Bypassing cpu_cache_invalidate_memregion() for testing!
