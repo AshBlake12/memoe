@@ -1,0 +1,7 @@
+model,residency,offloaded_fraction,experts_offloaded,moe_layers,expert_pool_gb,batch_tokens,peak_vram_gb,tokens,wall_seconds,tokens_per_second,gb_streamed,achieved_gbs,stall_seconds,stall_fraction
+DeepSeek-V2-Lite,0.0,1.0,64,26,28.79,1024,7.17,3072,4.0707,754.7,86.369,21.22,1.8726,0.4600
+DeepSeek-V2-Lite,0.0,1.0,64,26,28.79,4096,10.16,12288,4.4337,2771.5,86.369,19.48,2.1452,0.4838
+DeepSeek-V2-Lite,0.0,1.0,64,26,28.79,6144,9.40,18432,3.5941,5128.4,86.369,24.03,0.8251,0.2296
+DeepSeek-V2-Lite,0.0,1.0,64,26,28.79,8192,10.54,24576,3.7398,6571.5,86.369,23.09,0.0005,0.0001
+DeepSeek-V2-Lite,0.0,1.0,64,26,28.79,12288,12.84,36864,5.3492,6891.5,86.369,16.15,0.0976,0.0182
+DeepSeek-V2-Lite,0.0,1.0,64,26,28.79,16384,15.13,49152,6.7885,7240.5,86.369,12.72,0.0005,0.0001

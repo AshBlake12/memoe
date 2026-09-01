@@ -8,3 +8,4 @@ traces/data/
 results/gem5/
 *.tgz
 *.log
+gem5-src/
