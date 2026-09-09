@@ -1,0 +1,4 @@
+config,requests,prompt_tokens,output_tokens,wall_seconds,output_tokens_per_second,ttft_mean_ms,ttft_p95_ms,tpot_mean_ms,tpot_p95_ms,prefill_seconds,decode_seconds,prefill_stall_seconds,decode_stall_seconds,peak_vram_gb,residency
+resident,32,65536,2016,6.029,334.4,1604.4,2630.2,52.01,52.01,2.488,3.277,0.0,0.0,31.59,1.0
+offload,32,65536,2016,23.424,86.1,1727.5,2806.8,325.31,325.31,2.666,20.494,0.0171,12.6086,21.12,0.0
+phase_aware,32,65536,2016,5.943,339.2,1727.5,2806.8,52.01,52.01,2.666,3.277,0.0171,0.0,21.12 prefill / 31.59 decode,0.0 prefill / 1.0 decode
