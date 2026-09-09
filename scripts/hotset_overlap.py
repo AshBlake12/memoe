@@ -1,9 +1,14 @@
-import sys, itertools, numpy as np
-sys.path.insert(0, ".")
+import sys
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(ROOT))
+
+import itertools, numpy as np
 from memoe import RoutingTrace
 
 doms = ["prose", "math", "code", "chat"]
-tr = {d: RoutingTrace.load(f"results/traces/olmoe_{d}.npz") for d in doms}
+tr = {d: RoutingTrace.load(str(ROOT / "results" / "traces" / f"olmoe_{d}.npz")) for d in doms}
 cnt = {d: tr[d].counts() for d in doms}
 L, E = cnt["prose"].shape
 

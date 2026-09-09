@@ -61,10 +61,11 @@ class Simulator:
         self.n_gpus = n_gpus
         self.kv_reserve = kv_reserve_gb * GB
         self.act_reserve = activation_reserve_gb * GB
-        # lets a sweep vary residency continuously instead of in GPU quanta
+        # a sweep wants to walk residency smoothly. counting whole GPUs
+        # would make it jump in steps, so we allow fractions here.
         self.hbm_slots_override = hbm_slots_override
 
-    # ---------- capacity accounting ----------
+    # --- how much room is actually left for experts ---
     def hbm_bytes(self):
         return self.n_gpus * self.gpu.hbm_gb * GB
 
@@ -97,7 +98,7 @@ class Simulator:
         need = self.m.n_expert_instances
         return (self.hbm_slots() + self.cxl_slots()) >= need
 
-    # ---------- timing ----------
+    # --- does the fetch fit under the compute ---
     def t_layer_compute(self, batch_size):
         f = (2 * self.m.mats_per_expert * self.m.d_model * self.m.d_ff_expert
              * (self.m.top_k + self.m.n_shared_experts) * batch_size)
@@ -137,7 +138,7 @@ class Simulator:
                / (self.gpu.eff_flops * self.n_gpus))
         return num / den if den else float("inf")
 
-    # ---------- main loop ----------
+    # --- replay a trace, one batch at a time ---
     def run(self, trace, batch_size=64, policy="static_popularity",
             profile=None, prefetch_depth=0, prefetch_width=0.0,
             label=None):
@@ -160,9 +161,9 @@ class Simulator:
         cache = POLICIES[policy](slots if policy != "all_resident" else total_needed,
                                  nL, nE, profile=prof)
 
-        # Speculative prefetch set. Prefetching the hottest experts is
+        # speculative prefetch set. prefetching the hottest experts is
         # pointless: those are exactly the ones the hot tier already holds.
-        # The prefetcher must target the hottest experts that are NOT
+        # the prefetcher must target the hottest experts that are NOT
         # resident, i.e. the head of the cold tail.
         pf_sets = []
         n_pf = int(round(prefetch_width * nE))
@@ -257,7 +258,7 @@ class Simulator:
             n_batches=nb, notes=notes,
         )
 
-    # ---------- vectorised path (static residency) ----------
+    # --- fast path: residency never changes, so skip the per-batch loop ---
     def _run_static(self, trace, batch_size, cache, pf_sets, t_layer,
                     pf_budget_bytes, policy, prefetch_depth, prefetch_width,
                     label, notes, slots, total_needed):

@@ -1,0 +1,41 @@
+% =====================================================================
+%  diagrams/tikzsetup.tex
+%  Shared TikZ styles for the MEMoE diagrams. Input from memoe.tex after
+%  the colour definitions (linknavy, rulegrey, inkmuted, boxfill) and
+%  after \usetikzlibrary{...}.
+% =====================================================================
+
+\usetikzlibrary{patterns}
+
+\definecolor{tierhot}{HTML}{C2703D}   % HBM / GPU-resident
+\definecolor{tiercold}{HTML}{2E7D8A}  % host DRAM / CXL tier
+\definecolor{stagefill}{HTML}{EEF3F6}
+\definecolor{hotfill}{HTML}{FBEEE5}
+\definecolor{coldfill}{HTML}{E7F1F3}
+
+\tikzset{
+  % ---- generic blocks -------------------------------------------------
+  mnode/.style={
+    draw=rulegrey, line width=0.6pt, fill=stagefill, rounded corners=2pt,
+    minimum height=8mm, inner xsep=5pt, align=center,
+    font=\footnotesize},
+  mstage/.style={mnode, minimum width=26mm},
+  mhot/.style={mnode, draw=tierhot, fill=hotfill},
+  mcold/.style={mnode, draw=tiercold, fill=coldfill},
+  mlabel/.style={font=\scriptsize\itshape, text=inkmuted, align=center},
+  mtiny/.style={font=\scriptsize, text=inkmuted, align=center},
+  % ---- connections ----------------------------------------------------
+  mflow/.style={
+    -{Stealth[length=4pt,width=3pt]}, draw=inkmuted, line width=0.6pt},
+  mlink/.style={
+    -{Stealth[length=4pt,width=3pt]}, draw=tiercold, line width=1.0pt},
+  mdash/.style={mflow, dashed, dash pattern=on 2pt off 1.6pt},
+  % ---- timeline bars --------------------------------------------------
+  bar/.style={draw=rulegrey, line width=0.5pt, minimum height=5mm,
+              inner sep=0pt, anchor=south west, font=\scriptsize},
+  barcompute/.style={bar, fill=hotfill, draw=tierhot},
+  barcopy/.style={bar, fill=coldfill, draw=tiercold},
+  barstall/.style={bar, fill=white, draw=inkmuted,
+                   pattern=north east lines},
+  axis/.style={draw=inkmuted, line width=0.5pt},
+}

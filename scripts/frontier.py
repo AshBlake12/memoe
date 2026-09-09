@@ -91,7 +91,7 @@ def main():
                         "gpus_hbm_only": hbm_only_gpus, "gpus_needed": g,
                         "gpu_saving": round(hbm_only_gpus / g, 2)})
     df = pd.DataFrame(rows)
-    df.to_csv(TAB / "12_frontier.csv", index=False)
+    df.to_csv(TAB / "14_frontier.csv", index=False)
     print(df.to_string(index=False))
 
     import matplotlib; matplotlib.use("Agg")
@@ -110,8 +110,8 @@ def main():
     ax.set_ylabel("% of expert pool that can live in CXL")
     ax.set_title("Feasibility frontier, batch 512, measured-bandwidth CXL")
     ax.legend(fontsize=5.5, ncol=2); fig.tight_layout()
-    fig.savefig(FIG / "f8_frontier.png"); plt.close(fig)
-    print("\n-> tables/12_frontier.csv, figures/f8_frontier.png")
+    fig.savefig(FIG / "f9_frontier.png"); plt.close(fig)
+    print("\n-> tables/14_frontier.csv, figures/f9_frontier.png")
 
 
 if __name__ == "__main__":

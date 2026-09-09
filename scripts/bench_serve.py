@@ -97,7 +97,7 @@ def main() -> int:
     off = run_one(a, a.residency, "offload")
     rows.append(off)
 
-    # Phase-aware: prefill from the offloaded run, decode from the resident one.
+    # phase-aware: prefill from the offloaded run, decode from the resident one.
     pa = {
         "config": "phase_aware",
         "residency": f"{a.residency} prefill / 1.0 decode",

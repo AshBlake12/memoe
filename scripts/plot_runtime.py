@@ -92,7 +92,7 @@ def fig_residency(rows):
     h2, l2 = ax2.get_legend_handles_labels()
     ax.legend(h1 + h2, l1 + l2, frameon=False, fontsize=9, loc="lower left")
     fig.tight_layout()
-    fig.savefig(OUT / "r1_residency.png")
+    fig.savefig(OUT / "rt1_residency.png")
     plt.close(fig)
 
 
@@ -122,7 +122,7 @@ def fig_batch(rows):
     ax.set_ylim(0, 100)
     ax.legend(frameon=False, fontsize=9, loc="center left")
     fig.tight_layout()
-    fig.savefig(OUT / "r2_batch_regime.png")
+    fig.savefig(OUT / "rt2_batch_regime.png")
     plt.close(fig)
 
 
@@ -145,7 +145,7 @@ def fig_depth(rows):
     style(ax, "prefetch lookahead, layers", "tokens per second",
           "Deeper lookahead buys nothing once transfers are batched per layer")
     fig.tight_layout()
-    fig.savefig(OUT / "r3_depth.png")
+    fig.savefig(OUT / "rt3_depth.png")
     plt.close(fig)
 
 
@@ -173,7 +173,7 @@ def fig_overlap(rows):
           "Calibrating the overlap assumption")
     ax.legend(frameon=False, fontsize=9, loc="upper left")
     fig.tight_layout()
-    fig.savefig(OUT / "r4_overlap.png")
+    fig.savefig(OUT / "rt4_overlap.png")
     plt.close(fig)
     print(f"fitted exposure constant: {k:.3f}")
 

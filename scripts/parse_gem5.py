@@ -26,7 +26,7 @@ STATS_DIR = Path("results/gem5")
 CSV_OUT = Path("results/gem5_knee.csv")
 FIG_OUT = Path("results/figures_extra/e4_knee.png")
 
-# Each entry is a list of spellings to try, newest first.
+# each entry is a list of spellings to try, newest first.
 KEYS = {
     "sim_seconds": ["simSeconds", "sim_seconds"],
     "read_latency_mean": [
@@ -101,7 +101,7 @@ def main() -> None:
                 for k in mon[:25]:
                     print("   ", k)
 
-        # CommMonitor reports bandwidth directly and is the more reliable
+        # commMonitor reports bandwidth directly and is the more reliable
         # source; fall back to the memory controller byte counter.
         if mon_bw:
             achieved = mon_bw / 1e9

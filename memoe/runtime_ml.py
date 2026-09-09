@@ -120,7 +120,7 @@ class ModuleListTier(ExpertTier):
                     host[b + n:b + 2 * n].copy_(getattr(ex, u).weight.data.reshape(-1))
                     host[b + 2 * n:b + 3 * n].copy_(getattr(ex, d).weight.data.reshape(-1))
                     pos[e] = i
-                    # Release the CPU copy as we go, so peak host memory stays
+                    # release the CPU copy as we go, so peak host memory stays
                     # near the size of the pool rather than twice it.
                     for pn in (g, u, d):
                         getattr(ex, pn).weight.data = torch.empty(0, dtype=self.dtype)

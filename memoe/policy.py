@@ -10,7 +10,9 @@ import numpy as np
 
 
 class Cache:
-    """Base class. `capacity` is in expert slots."""
+    """base class for every placement policy. capacity is counted in
+    expert slots, not bytes, because every expert in a checkpoint is the
+    same size."""
     name = "base"
     static = False          # True => residency never changes at runtime
 

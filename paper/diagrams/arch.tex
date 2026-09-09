@@ -1,0 +1,62 @@
+% =====================================================================
+%  diagrams/arch.tex  --  MEMoE-RT data path
+% =====================================================================
+\begin{figure}[htbp]
+\centering
+\begin{tikzpicture}
+
+% ---------------- host side ------------------------------------------
+\node[mcold, minimum width=40mm, minimum height=26mm, align=center] (host)
+  {\ };
+\node[mtiny, anchor=north] at ([yshift=-2pt]host.north)
+  {\textbf{host DRAM} (pinned)};
+
+\foreach \i/\y in {0/6.5mm, 1/1.5mm, 2/-3.5mm}{
+  \node[mcold, minimum width=32mm, minimum height=4mm, font=\scriptsize]
+       at ([yshift=\y]host.center) {layer $L{+}\i$ experts, contiguous};
+}
+\node[mtiny, anchor=south] at ([yshift=2pt]host.south) {$\ldots$ whole pool};
+
+% ---------------- link ------------------------------------------------
+\node[mtiny, right=16mm of host, yshift=6mm] (linklab)
+  {PCIe 5.0 x16\\40.8\,GB/s measured\\\itshape stands in for CXL};
+\draw[mlink] ([yshift=4mm]host.east) -- ([yshift=4mm]host.east -| linklab.west)
+  ++(0,0);
+
+% ---------------- device side ----------------------------------------
+\node[mnode, minimum width=44mm, minimum height=34mm, right=34mm of host] (gpu)
+  {\ };
+\node[mtiny, anchor=north] at ([yshift=-2pt]gpu.north) {\textbf{GPU}};
+
+\node[mhot, minimum width=36mm, font=\scriptsize] (resident)
+  at ([yshift=8mm]gpu.center)
+  {resident set: low expert indices\\\itshape no ranking anywhere};
+
+\node[mcold, minimum width=36mm, minimum height=9mm, font=\scriptsize] (ring)
+  at ([yshift=-2mm]gpu.center)
+  {staging ring, $d{+}1$ slots\\layer $L$ uses slot $L \bmod (d{+}1)$};
+
+\node[mnode, minimum width=36mm, font=\scriptsize] (compute)
+  at ([yshift=-12mm]gpu.center)
+  {MoE layer $L$ \quad $\to$ \quad attention};
+
+% ---------------- streams --------------------------------------------
+\draw[mlink] ([yshift=4mm]host.east) -- node[mlabel, above, pos=0.5]
+  {copy stream} node[mlabel, below, pos=0.5]
+  {one transfer per layer, issued $d$ ahead} (ring.west);
+
+\draw[mflow] (ring.south) -- (compute.north);
+\draw[mflow] (resident.south) -- ([xshift=-14mm]ring.north);
+
+\draw[mdash] (compute.east) -- ++(6mm,0) |- (ring.east)
+  node[mlabel, pos=0.25, right=1mm, text width=13mm]
+  {slot freed, refilled};
+
+\end{tikzpicture}
+\caption{MEMoE-RT data path. Non-resident experts live contiguously in pinned host
+memory and move one whole layer at a time over a dedicated copy stream into a ring
+of staging buffers, $d$ layers ahead of use. Waiting is done GPU-side with stream
+events, so the transfer overlaps attention compute rather than serialising with
+it.}
+\label{fig:arch}
+\end{figure}

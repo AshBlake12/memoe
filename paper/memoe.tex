@@ -4,14 +4,14 @@
 %
 %  Build:  pdflatex memoe.tex  (twice, for references)
 %
-%  Figures live in ../results/. The \graphicspath below picks them up.
+%  Figures live in figures/. The \graphicspath below picks them up.
 %  Places marked SCREENSHOT need a capture pasted in; each one says
 %  exactly what to capture.
 % =====================================================================
 
-\documentclass[11pt,a4paper]{article}
+\documentclass[10pt,a4paper]{article}
 
-\usepackage[margin=2.4cm]{geometry}
+\usepackage[margin=2.05cm]{geometry}
 \usepackage[T1]{fontenc}
 \usepackage{lmodern}
 \usepackage{microtype}
@@ -35,10 +35,20 @@
 \captionsetup{font=small,labelfont=bf,labelsep=period}
 \titleformat{\section}{\large\bfseries}{\thesection}{0.7em}{}
 \titleformat{\subsection}{\normalsize\bfseries}{\thesubsection}{0.7em}{}
-\setlist{itemsep=2pt,topsep=4pt}
+\setlist{itemsep=1pt,topsep=3pt}
+\renewcommand{\topfraction}{0.92}
+\renewcommand{\bottomfraction}{0.85}
+\renewcommand{\textfraction}{0.06}
+\renewcommand{\floatpagefraction}{0.80}
+\captionsetup{skip=4pt}
+\setlength{\textfloatsep}{8pt plus 2pt minus 2pt}
+\setlength{\intextsep}{8pt plus 2pt minus 2pt}
+\setlength{\abovedisplayskip}{5pt}
+\setlength{\belowdisplayskip}{5pt}
+\titlespacing*{\section}{0pt}{8pt}{4pt}
+\titlespacing*{\subsection}{0pt}{6pt}{3pt}
 
-\graphicspath{{../results/}{../results/figures/}{../results/figures_extra/}%
-              {../results/figures_real/}{../results/figures_runtime/}{figures/}}
+\graphicspath{{figures/}}
 
 \input{diagrams/tikzsetup.tex}
 
@@ -47,15 +57,6 @@
   \begin{center}\fcolorbox{rulegrey}{boxfill}{%
     \begin{minipage}{0.93\linewidth}\vspace{4pt}#1\vspace{4pt}\end{minipage}}%
   \end{center}}
-
-% Placeholder marker for screenshots still to be pasted in.
-\newcommand{\screenshot}[2]{%
-  \begin{figure}[htbp]\centering
-  \fcolorbox{rulegrey}{boxfill}{\begin{minipage}{0.92\linewidth}
-  \vspace{2.2cm}\centering{\color{inkmuted}\small SCREENSHOT: #1}\vspace{2.2cm}
-  \end{minipage}}
-  \caption{#2}
-  \end{figure}}
 
 \title{\vspace{-1.4cm}\textbf{MEMoE: Memory Expansion for Mixture-of-Experts Inference}\\[4pt]
 \large When a slow memory tier can hold the experts, and when it cannot}
@@ -77,11 +78,17 @@ parameters still have to live in GPU memory, so the model needs sixteen H100s to
 hold weights that only require the arithmetic of about two. We ask whether a
 slower, larger memory tier can hold the idle experts instead, and at what cost.
 
-We answer with measurements rather than models alone. We characterised a CXL-class
+We answer with measurements, not models alone. We characterised a CXL-class
 tier in DRAMSim3, captured 258{,}629 tokens of real routing from OLMoE-1B-7B across
 four workloads, and built MEMoE-RT, a runtime that executes the checkpoint with
 its expert weights held outside GPU memory and streamed in over PCIe while
 attention computes.
+
+In a serving loop with a real KV cache and continuous batching, the same
+offload costs 7\% of prefill and 525\% of decode, and offloaded decode cost is
+independent of concurrency while resident cost grows with it. Split across
+prefill and decode workers, offload retains full throughput while removing a
+third of prefill-side memory.
 
 Three measurements redirected the design. Expert coverage saturates by a batch of
 about one thousand tokens, so the fast tier stops behaving as a cache. Fetch hit
@@ -92,12 +99,20 @@ than random placement does. Together these rule out the tiering engine the
 literature reaches for, and leave a capacity decision plus a bandwidth window
 scheduling problem.
 
-MEMoE-RT confirms the resulting design on hardware. At a prefill batch of 16{,}384
-tokens it runs with all 64 experts per layer held off-GPU, using 7.27~GB instead of
-17.73~GB of GPU memory, and retains 91.9\% of fully resident throughput. At a
-decode-sized batch of 512 tokens the same configuration retains 38.3\%. Our closed
-form for the critical batch size, derived before any of these runs, predicts the
-observed crossover to within 0.5\%.
+MEMoE-RT confirms the resulting design on hardware, on two architectures. On
+OLMoE-1B-7B it runs with all experts off-GPU at a prefill batch of 16{,}384
+tokens, using 7.27~GB instead of 17.73~GB, and retains 91.9\% of fully resident
+throughput. The regime, not the configuration, is what decides this: holding 70\%
+of experts off-GPU retains 94.4\% at that batch size and 38.3\% at a decode-sized
+batch of 512. Our closed form for the critical batch size, calibrated only against the
+resident baseline, predicts the observed crossover to within 0.5\%.
+
+On DeepSeek-V2-Lite the result is categorical, not incremental. That
+checkpoint is 31.4~GB and the GPU has 23~GB, so no fully resident baseline
+exists: the model cannot run on this hardware at all. With its entire 28.8~GB
+expert pool held in host memory, MEMoE-RT runs it in 15.1~GB at 7{,}241 tokens
+per second, and reproduces the same regime boundary at a different batch size,
+over a different link, with a different router and attention mechanism.
 \end{abstract}
 
 \vspace{4pt}
@@ -157,7 +172,7 @@ MEMoE is a measurement stack and a runtime.
       expert pool size, KV cache growth, and device counts under a given memory
       budget.
 \item \textbf{A tier characterisation} in DRAMSim3, which measures what a CXL-class
-      DRAM back end actually sustains for bulk expert reads rather than quoting a
+      DRAM back end actually sustains for bulk expert reads instead of quoting a
       DIMM rating.
 \item \textbf{A routing capture} that hooks the router of a live checkpoint and
       records which experts fire for every token, across four workloads.
@@ -175,19 +190,59 @@ MEMoE is a measurement stack and a runtime.
       reader put their own model and hardware into the capacity formula.
 \end{itemize}
 
-The runtime is what turns the rest from a spreadsheet into an instrument. Because
-we can measure end-to-end throughput on hardware, we can check whether the
-analytical model predicts reality, and it does.
-
 \input{diagrams/method.tex}
 
-\screenshot{The MEMoE dashboard, summary section, showing the three measured
-constants and the three findings}{The dashboard presents every result in this
-report and includes a live calculator for the critical batch size.
-Available at \texttt{results/dashboard.html}.}
 
 % =====================================================================
 \section{Characterising the tier}
+\label{sec:tier}
+
+\subsection{The two-tier architecture model}
+\label{sec:archmodel}
+
+Everything in this report rests on a model of two memory tiers with very
+different properties attached to one compute device. We state it before
+measuring it.
+
+\begin{table}[htbp]
+\centering\small
+\caption{The two tiers as modelled. HBM figures are vendor specifications for
+HBM3e derated to the effective rate we use throughout; CXL figures are our own
+DRAMSim3 measurements at DDR4-3200 plus a controller and link allowance.
+Capacity per device is what a single package or a single expander card
+provides.}
+\label{tab:archmodel}
+\begin{tabular}{lll}
+\toprule
+ & HBM3e (fast tier) & CXL Type-3 DDR4 (capacity tier) \\
+\midrule
+Attach            & on-package, on the GPU  & PCIe/CXL link, off-package \\
+Capacity/device   & 80 GB modelled          & 512 GB, 2 TB pooled \\
+Peak bandwidth    & 3{,}350 GB/s            & 25.6 GB/s per channel \\
+Effective bandwidth & 3{,}350 GB/s          & 16.88 GB/s measured, 67.5 scaled \\
+Loaded latency    & $\sim$350 ns            & 179.4 ns device, $\sim$300 ns total \\
+Bandwidth ratio   & 1$\times$               & 1/50 to 1/198 of HBM \\
+Cost per GB       & high, fixed to the GPU  & commodity DDR4 \\
+Expandable        & no                      & yes, by adding cards \\
+Poolable          & no                      & yes, over a CXL 3.0 switch \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+That fourth row is the whole design problem. A tier 50 to 198 times
+slower is useless for anything read every step, and perfectly adequate for
+anything read once per batch. Section~\ref{sec:kv} shows that this single
+distinction, expressed as arithmetic intensity, decides what may be moved: expert
+weights may, active KV cache may not.
+
+Latency matters less here than it appears. Our CXL figure of roughly 300~ns
+is 179.4~ns of measured device latency plus about 120~ns for controller and link
+hop, placing it inside the 200--400~ns band reported for early CXL silicon. At
+whole-layer transfer granularity, latency is charged once per transfer and
+contributes 0.16\% of transfer time, so the tier behaves as a bandwidth device.
+Section~\ref{sec:granularity} shows where that stops being true.
+
+\subsection{What a CXL-class DRAM back end sustains}
 % =====================================================================
 
 We did not want to quote CXL bandwidth from a datasheet. A Type-3 expander is DRAM
@@ -197,18 +252,16 @@ expert, issued as 196{,}608 accesses of 64 bytes.
 
 \begin{table}[htbp]
 \centering\small
-\caption{DRAMSim3, DDR4 x8, 12~MB sequential expert read. Sustained bandwidth is
-computed from average interarrival time, not from the headline figure, which is
-diluted by idle cycles between requests.}
+\caption{DRAMSim3, DDR4 x8, 12~MB sequential expert read, four of six grades shown.
+Sustained bandwidth comes from average interarrival time, not the headline
+figure, which idle cycles dilute.}
 \label{tab:dram}
 \begin{tabular}{lrrrr}
 \toprule
-Grade & Specification & Sustained & Share reached & Loaded latency \\
+Grade & Spec & Sustained & Reached & Loaded latency \\
 \midrule
 DDR4-1866 & 14.9 GB/s & 12.76 GB/s & 85.5\% & 237.9 ns \\
-DDR4-2133 & 17.1 GB/s & 13.24 GB/s & 77.6\% & 228.9 ns \\
 DDR4-2400 & 19.2 GB/s & 14.96 GB/s & 77.9\% & 202.9 ns \\
-DDR4-2666 & 21.3 GB/s & 15.29 GB/s & 71.7\% & 197.3 ns \\
 DDR4-2933 & 23.5 GB/s & 15.65 GB/s & 66.7\% & 192.9 ns \\
 DDR4-3200 & 25.6 GB/s & \textbf{16.88 GB/s} & 65.9\% & \textbf{179.4 ns} \\
 \bottomrule
@@ -222,17 +275,17 @@ rises, because timing constraints such as tRC, tFAW and refresh do not scale wit
 the data rate. Anyone specifying an expander should budget against sustained
 bandwidth, not DIMM peak, and the gap widens with faster parts.
 
-One number in this section is derived rather than directly measured.
+One number in this section is derived, not directly measured.
 Multi-channel configurations did not scale in DRAMSim3 even with address mapping
 interleaving correctly, because its trace driver issues at most one request per
 cycle and starves the extra channels. Where a four-channel figure appears in this
-report it is the measured single channel multiplied by four. Section~9.2 tests
+report it is the measured single channel multiplied by four. Section~\ref{sec:channels} tests
 that multiplication in gem5, which has no such issue-rate limit, and finds
 scaling linear to four channels within 0.03\%.
 
 \begin{figure}[htbp]
 \centering
-\includegraphics[width=0.86\linewidth]{f1_bandwidth.png}
+\includegraphics[width=0.62\linewidth]{f7_bandwidth.png}
 \caption{Sustained bandwidth against DIMM specification across DDR4 grades. The
 gap is the part a capacity plan has to account for.}
 \label{fig:dram}
@@ -240,6 +293,7 @@ gap is the part a capacity plan has to account for.}
 
 % =====================================================================
 \section{How real routing behaves}
+\label{sec:routing}
 % =====================================================================
 
 Every argument about expert tiering rests on an assumption about routing skew, so
@@ -274,14 +328,15 @@ produce. Any system that assumes a fixed skew will be tuned for one workload and
 wrong for another.
 
 \subsection{Coverage saturates before serving begins}
+\label{sec:coverage}
 
-The case for expert tiering depends on reuse: if a batch touches only some
+Expert tiering only pays if there is reuse: if a batch touches only some
 experts, the rest need not be resident. We measured how many experts a batch
 touches per layer as batch size grows.
 
 \begin{figure}[htbp]
 \centering
-\includegraphics[width=0.86\linewidth]{f3_coverage.png}
+\includegraphics[width=0.62\linewidth]{r1_coverage.png}
 \caption{Share of experts touched per layer against batch size, from the captured
 traces. By 1{,}024 tokens every workload is at or near total coverage.}
 \label{fig:coverage}
@@ -297,6 +352,7 @@ during decode runs 64 to 256 concurrent sequences. Prefill runs thousands of
 tokens at once. Neither is small batch.
 
 \subsection{Popularity buys nothing}
+\label{sec:policy}
 
 If every expert is touched, ranking them by popularity should not help. We tested
 this by sweeping synthetic routing from perfectly uniform to more skewed than
@@ -319,11 +375,12 @@ Batch & $s=0.0$ & $s=0.6$ & $s=1.0$ & $s=1.5$ \\
 \end{table}
 
 Static placement, LRU and sampled LFU all perform identically at serving batch
-sizes. This is convenient rather than disappointing: static placement is decided
+sizes. This is convenient, not disappointing: static placement is decided
 once at load time and costs nothing on the critical path, so the cheapest policy
 is also the best available one.
 
 \subsection{The wrong profile is worse than none}
+\label{sec:profile}
 
 If placement cannot help, can it hurt? We took the top quarter of experts for each
 workload and measured overlap between workloads, using a split-half control on the
@@ -332,11 +389,11 @@ same workload to establish that the measurement is meaningful at all.
 \begin{figure}[htbp]
 \centering
 \begin{subfigure}{0.48\linewidth}
-  \includegraphics[width=\linewidth]{e2_overlap.png}
+  \includegraphics[width=\linewidth]{r2_overlap.png}
   \caption{Hot set overlap. Chance is 25\%.}
 \end{subfigure}\hfill
 \begin{subfigure}{0.48\linewidth}
-  \includegraphics[width=\linewidth]{e3_penalty.png}
+  \includegraphics[width=\linewidth]{r3_penalty.png}
   \caption{Cross-workload hit rate at 50\% residency. Random scores 0.500.}
 \end{subfigure}
 \caption{Hot expert sets split into two camps. Prose and chat share experts;
@@ -345,14 +402,17 @@ chance.}
 \label{fig:overlap}
 \end{figure}
 
-Self-overlap runs from 75.0\% to 94.9\%, so the hot sets are stable within a
-workload. Across workloads, mathematics and code overlap 50.0\%, while prose and
+Self-overlap averages 84.9\% and runs from 75.0\% to 94.9\%, so the hot sets
+are stable within a workload against a chance level of 25\%. Across workloads, mathematics and code overlap 50.0\%, while prose and
 code overlap 15.2\%, well below the 25\% expected by chance. Code routes to
 experts that prose actively avoids.
 
-The consequence is measured in the right-hand panel. A placement profiled on prose
-and then asked to serve code achieves a hit rate of 0.383, against 0.500 for
-random placement. Profiling on the wrong workload is worse than not profiling.
+Measure the consequence and it shows up in the right-hand panel. Averaged over all pairs, a
+placement profiled on the workload it serves achieves 0.756, while a mismatched
+placement achieves 0.519, barely above the 0.500 that random placement would give.
+The worst case is worse than random: a placement profiled on prose and then asked
+to serve code achieves 0.383. Profiling on the wrong workload is worse than not
+profiling at all.
 
 This is domain specialisation visible in routing statistics alone, from 260{,}000
 tokens on a 7B model, with no interpretability tooling. For mixed serving traffic
@@ -361,6 +421,7 @@ chosen by capacity alone.
 
 % =====================================================================
 \section{The capacity model}
+\label{sec:capacity}
 % =====================================================================
 
 Since skew is irrelevant and policy choice is irrelevant, two decisions remain:
@@ -395,9 +456,10 @@ crossover at 4{,}645 tokens. The agreement is 0.5\%.}
 
 % =====================================================================
 \section{Experts, not the KV cache}
+\label{sec:kv}
 % =====================================================================
 
-The KV cache is the other structure that destroys HBM budgets, so we asked whether
+Something else destroys HBM budgets, so we asked whether
 it is also a candidate for the slow tier. It is not, and the reason generalises.
 
 A tier with bandwidth $BW$ feeding a device at $F$ FLOP/s is balanced at $F/BW$
@@ -427,22 +489,23 @@ DeepSeek-V3     & 1.0  & 5{,}861 & 166{,}706 \\
 
 Concretely, one 32k-context Qwen3 sequence reads 5.875~GB of KV per decode step.
 On HBM3e that is 1.883~ms, or 531 steps per second. On a four-channel CXL tier it
-is 93.455~ms, or 11 steps per second: a 48-fold slowdown. Active KV must stay in
-HBM.
+is 93.455~ms: a 49.6-fold slowdown, or 11 decode steps per second against 531.
+Active KV must stay in HBM.
 
 Cold KV is a separate question. Preempted requests and prefix caches are not read
 every step and may tier well, but we did not model that and do not claim it.
 
 % =====================================================================
 \section{MEMoE-RT: the system}
+\label{sec:system}
 % =====================================================================
 
-The results above are all simulation or analysis. To test them we built a runtime
+Everything above is simulation or analysis. To test them we built a runtime
 that runs the real checkpoint with its experts elsewhere.
 
 \subsection{Design}
 
-The design follows from the findings rather than from the literature.
+The design follows from the findings, not from the literature.
 
 Because coverage saturates, every expert in a layer will be needed. Prediction is
 therefore trivial and the entire problem is scheduling the transfer early enough.
@@ -494,11 +557,62 @@ token sequences. Per-layer divergence traces cleanly to rounding: CUDA
 changes the last bit. Two identical reference passes agree exactly, so the
 comparison is meaningful.
 
-\screenshot{Terminal output of \texttt{bench\_runtime.py --check} showing PASS}
-{Correctness check comparing tiered execution against the reference
-implementation before any timing result is taken.}
 
 % =====================================================================
+\section{The simulation framework: HBM-only against HBM+CXL}
+\label{sec:framework}
+
+Every quantitative result in this report is a comparison between two
+configurations of the same model on the same hardware:
+
+\begin{itemize}
+\item \textbf{HBM-only.} All weights, including the entire expert pool, resident
+      in GPU memory. This is the baseline every throughput figure is measured
+      against, and for DeepSeek-V2-Lite it is the configuration that does not
+      exist, because the weights exceed the device.
+\item \textbf{HBM+CXL.} Experts held in the capacity tier and streamed to GPU
+      staging buffers one layer ahead of use, with only the resident fraction and
+      the non-expert weights in HBM.
+\end{itemize}
+
+Four independent implementations evaluate that comparison, and they are
+independent in the sense that matters: they share no code.
+
+\begin{table}[htbp]
+\centering\small
+\caption{The four evaluation paths and what each contributes. Agreement between
+them is the reason the closed form is trusted for hardware we could not buy.}
+\label{tab:framework}
+\begin{tabular}{p{0.20\linewidth}p{0.30\linewidth}p{0.40\linewidth}}
+\toprule
+Path & Implementation & What it establishes \\
+\midrule
+Analytical
+  & \texttt{memoe/analysis.py}
+  & Closed form for $B^{*}$, capacity, pooling, KV intensity \\
+Trace-driven
+  & \texttt{memoe/sim.py} on 258{,}629 captured tokens
+  & Hit rate, coverage, policy equivalence, placement penalty \\
+Event-driven
+  & SystemC TLM-2.0, \texttt{systemc/memoe\_tlm.cpp}
+  & Crossover and lookahead depth from a discrete-event model \\
+Hardware
+  & MEMoE-RT on two GPUs and two checkpoints
+  & Measured throughput, memory and stall on real weights \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Tier characterisation feeds all four: DRAMSim3 supplies the bandwidth and latency
+constants, and gem5 supplies the channel scaling law that the four-channel figure
+rests on. The QEMU work is separate from the performance path and establishes that
+the Linux CXL software stack supports the tiering this framework assumes.
+
+A reader who wants the HBM-only against HBM+CXL comparison directly should read
+Table~\ref{tab:residency} for the memory-throughput tradeoff at fixed batch,
+Table~\ref{tab:batch} for its dependence on batch size, and
+Table~\ref{tab:serve} for the same comparison inside a serving loop.
+
 \section{What the runtime measures}
 % =====================================================================
 
@@ -528,20 +642,13 @@ Residency & Experts off-GPU & GPU memory & Tokens/s & Retained & Stalled \\
 \end{tabular}
 \end{table}
 
-\begin{figure}[htbp]
-\centering
-\includegraphics[width=0.88\linewidth]{r1_residency.png}
-\caption{Throughput and GPU memory against the share of experts held off-GPU, at
-batch 4{,}096. Memory falls faster than throughput across the whole range.}
-\label{fig:residency}
-\end{figure}
 
 Run-to-run variation across repeated configurations is approximately
 $\pm 3\%$, which is why the 0.30 row appears marginally above 0.40.
 
 \subsection{The regime boundary}
 
-The batch sweep is the central result, because it measures directly what the rest
+Our central result is the batch sweep, because it measures directly what the rest
 of the report argues.
 
 \begin{table}[htbp]
@@ -563,16 +670,16 @@ Batch & Baseline tok/s & Tiered tok/s & Retained & Stalled \\
 
 \begin{figure}[htbp]
 \centering
-\includegraphics[width=0.88\linewidth]{r2_batch_regime.png}
+\includegraphics[width=0.62\linewidth]{rt2_batch_regime.png}
 \caption{Retention and stall against batch size with a fixed 70\% of experts
 off-GPU. The transition sits between the decode and prefill regimes, where
 Equation~\ref{eq:bstar} predicts it.}
 \label{fig:batch}
 \end{figure}
 
-The same configuration costs 62\% of throughput at a decode-sized batch and 5.6\%
+One configuration, two regimes: 62\% of throughput gone at a decode-sized batch and 5.6\%
 at a prefill-sized one. This is the claim that expert offload is a prefill
-technique, stated as a measurement rather than an argument.
+technique, stated as a measurement, not an argument.
 
 Pushing further, at batch 16{,}384 with \emph{all} experts off-GPU:
 
@@ -583,6 +690,7 @@ memory falls from 17.73~GB to 7.27~GB, a \textbf{2.44-fold reduction}. Time
 stalled on transfer is 0.67\%.}
 
 \subsection{Lookahead depth, and a correction}
+\label{sec:depth}
 
 Our simulation work recommended a prefetch depth of 4 to 8 layers. The hardware
 disagrees.
@@ -604,15 +712,8 @@ Lookahead & Tokens/s & GPU memory & Stalled \\
 \end{tabular}
 \end{table}
 
-\begin{figure}[htbp]
-\centering
-\includegraphics[width=0.85\linewidth]{r3_depth.png}
-\caption{Deeper lookahead buys no throughput once transfers are batched per layer,
-and costs staging memory.}
-\label{fig:depth}
-\end{figure}
 
-The explanation is our own design change. The simulator modelled per-expert
+We caused this ourselves. The simulator modelled per-expert
 on-demand fetches, which need deep lookahead to stay ahead of demand. The runtime
 moves a whole layer in one transfer, and at this operating point layer transfer
 time and layer compute time are close to equal, so a single layer of lookahead
@@ -623,17 +724,18 @@ sufficient, and depth 8 wastes 41\% more staging memory for slightly less
 throughput.
 
 \subsection{Calibrating the overlap assumption}
+\label{sec:overlap}
 
-The analytical model assumes transfer hides perfectly under compute. Fitting
+Our analytical model assumes transfer hides perfectly under compute. Fitting
 measured wall time to $t = t_{\text{compute}} + \kappa \cdot t_{\text{transfer}}$
 across the residency sweep gives $\kappa = 0.40 \pm 0.07$.
 
 \begin{figure}[htbp]
 \centering
-\includegraphics[width=0.88\linewidth]{r4_overlap.png}
+\includegraphics[width=0.62\linewidth]{rt4_overlap.png}
 \caption{Measured wall time against the perfect-overlap model and the fitted one.
 Roughly 60\% of transfer time hides under compute; the remaining 40\% is exposed.}
-\label{fig:overlap}
+\label{fig:overlapfit}
 \end{figure}
 
 So about 60\% of transfer time is hidden and 40\% is not. The ideal model
@@ -643,23 +745,325 @@ clearest unmodelled gap. It is now a measured constant, and multiplying predicte
 transfer exposure by $\kappa$ brings the analytical model into agreement with
 hardware across the full sweep.
 
+
+% =====================================================================
+\section{A second architecture, and a model that does not fit}
+% =====================================================================
+
+Every result so far comes from one checkpoint. To test whether the findings are
+architectural or an OLMoE quirk, we ran MEMoE-RT on DeepSeek-V2-Lite, which
+differs in every respect that could matter: 26 MoE layers instead of 16, top-6
+of 64 routed experts instead of top-8, two shared experts that fire on every
+token, a dense first layer, multi-head latent attention, and its own modelling
+code rather than the fused expert layout used by transformers 5.x.
+
+That last difference required a second code path. Rather than reimplement each
+architecture's routing, this path leaves the model's forward untouched: it
+points every offloaded expert's projection weights at a view into the GPU
+staging buffer, and drives the tier from pre- and post-hooks on each MoE block.
+Because layer $L$ always occupies ring slot $L \bmod (d{+}1)$ at a fixed
+position, those views are correct for the lifetime of the process and are bound
+once at load time. The model computes exactly as it always did; it simply finds
+its weights in a buffer that was filled a moment earlier.
+
+\subsection{The baseline does not exist}
+
+\begin{table}[htbp]
+\centering\small
+\caption{DeepSeek-V2-Lite on an NVIDIA A10 over PCIe 4.0 x16. There is no
+resident baseline to compare against, because the weights exceed the device.}
+\label{tab:dsfit}
+\begin{tabular}{lr}
+\toprule
+Total weights & 31.41 GB \\
+Expert pool & 28.79 GB (91.6\% of the model) \\
+Experts per layer & 64, at 17.3 MB each, over 26 MoE layers \\
+GPU capacity & 23.0 GB \\
+\midrule
+\textbf{Peak GPU memory with MEMoE-RT} & \textbf{7.17 GB} at batch 1{,}024 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+This is a different claim from the OLMoE results. There we showed that a model
+which already fits can be run in less memory. Here the model does not fit, and
+runs anyway.
+
+\subsection{The same boundary, in a different place}
+
+\begin{table}[htbp]
+\centering\small
+\caption{Batch sweep with all 64 experts per layer held in host memory. Bytes
+streamed are constant at 86.4~GB across three repetitions, because coverage is
+total at every batch size shown.}
+\label{tab:dsbatch}
+\begin{tabular}{rrrrr}
+\toprule
+Batch & Tokens/s & GPU memory & Achieved link & Stalled \\
+\midrule
+1{,}024  &    755 &  7.17 GB & 21.22 GB/s & 46.00\% \\
+4{,}096  & 2{,}772 & 10.16 GB & 19.48 GB/s & 48.38\% \\
+6{,}144  & 5{,}128 &  9.40 GB & \textbf{24.03 GB/s} & 22.96\% \\
+8{,}192  & 6{,}572 & 10.54 GB & 23.09 GB/s &  0.01\% \\
+12{,}288 & 6{,}892 & 12.84 GB & 16.15 GB/s &  1.82\% \\
+16{,}384 & \textbf{7{,}241} & 15.13 GB & 12.72 GB/s &  0.01\% \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=0.62\linewidth]{rt5_deepseek_crossover.png}
+\caption{Stall collapses from 48\% to effectively zero between 4{,}096 and
+8{,}192 tokens. The same transition appears on OLMoE at a different batch size,
+on a different link.}
+\label{fig:dscross}
+\end{figure}
+
+Look for the crossover and it appears twice, from opposite directions. Stall falls from
+48.4\% at 4{,}096 to 0.01\% at 8{,}192. Achieved link bandwidth peaks at
+24.03~GB/s at 6{,}144, which is the point at which the transfer is fully busy
+and compute has just caught up; above it the link idles, falling to 12.72~GB/s
+at 16{,}384 because there is nothing left to hide.
+
+
+It sits between 4{,}096 and 8{,}192 tokens, bracketed at 6{,}144 by
+the bandwidth peak. Equation~\ref{eq:bstar} places it near 6{,}000 for this
+configuration. The agreement is looser than the 0.5\% obtained on OLMoE, because
+attention is a much larger share of compute on a 26-layer model with eager
+multi-head latent attention, and our compute term counts routed expert GEMMs
+only. The prediction is nonetheless correct to within the interval the
+measurements resolve.
+
+Two things follow. The regime boundary is a property of the problem rather than
+of one checkpoint: it appears on both architectures, at the batch size the
+closed form predicts for each, over links differing by a factor of two in
+bandwidth. And expert offload is at its most valuable exactly where the
+constraint is hardest, on a model too large for the device it runs on.
+
+
+% =====================================================================
+\section{What offload costs in a serving loop}
+% =====================================================================
+
+Batch sweeps measure single forward passes. Serving is not a single forward
+pass: requests arrive, prefill once, then generate one token at a time while
+other requests join and leave the batch. To measure what offload costs in that
+setting we built a serving loop with a real KV cache and continuous batching,
+where sequences enter and leave the running batch between decode steps and the
+cache is gathered accordingly.
+
+Three configurations run the same workload of 32 requests, 2{,}048 prompt
+tokens each, generating 64 tokens: \emph{resident}, with every expert in GPU
+memory; \emph{offload}, with every expert streamed and one engine serving both
+phases; and \emph{phase-aware}, which measures each phase in the configuration
+it would occupy on a disaggregated deployment.
+
+\subsection{Seven percent, or six hundred percent, depending on the phase}
+
+\begin{table}[htbp]
+\centering\small
+\caption{Serving at 32 concurrent sequences, so every request admits before
+decoding begins and time-to-first-token reflects prefill alone.}
+\label{tab:serve}
+\begin{tabular}{lrrr}
+\toprule
+ & Resident & Offloaded & Ratio \\
+\midrule
+Prefill time        & 2.488 s   & 2.666 s   & \textbf{1.07} \\
+Time to first token & 1{,}604 ms & 1{,}728 ms & \textbf{1.08} \\
+Time per output token & 52.01 ms & 325.31 ms & \textbf{6.25} \\
+Output tokens per second & 334.4 & 86.1 & 0.26 \\
+Peak GPU memory     & 31.59 GB  & 21.12 GB  & 0.67 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+
+
+Streaming the entire expert pool costs 7\% of prefill and 525\% of decode. That
+is the prefill/decode distinction stated as a serving measurement rather than
+inferred from batch sizes, and it is the reason offload belongs on prefill
+workers.
+
+Look at the memory column separately. The resident configuration peaked
+at 31.59~GB on a 32.6~GB device and emitted allocator warnings while retrying
+KV cache allocations. The offloaded configuration ran the same workload with
+10~GB spare, which is capacity available for longer contexts or more concurrent
+requests.
+
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=0.62\linewidth]{s2_phase_cost.png}
+\caption{The same offload, measured in the two phases of one request. Nothing
+about the configuration changes between these two bars except the batch size
+the phase presents.}
+\label{fig:s2}
+\end{figure}
+
+\subsection{Offloaded decode costs the same at any concurrency}
+\label{sec:tpot}
+
+Sweeping concurrency produces the more interesting result.
+
+\begin{table}[htbp]
+\centering\small
+\caption{Time per output token against concurrent sequences. The offloaded
+figure does not move.}
+\label{tab:servesweep}
+\begin{tabular}{rrrrr}
+\toprule
+Concurrency & Resident TPOT & Offloaded TPOT & Ratio & Offloaded VRAM \\
+\midrule
+4  & 14.74 ms & 321.38 ms & 21.80 &  6.44 GB \\
+8  & 20.55 ms & 324.41 ms & 15.79 &  9.48 GB \\
+16 & 31.60 ms & 326.32 ms & 10.33 & 12.26 GB \\
+32 & 52.01 ms & 325.31 ms &  6.25 & 21.12 GB \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=0.62\linewidth]{s1_decode_tpot.png}
+\caption{Offloaded time per output token is flat at $325 \pm 2$~ms across an
+eightfold change in concurrency, because each decode step streams the whole
+expert pool regardless of how many sequences it serves. Resident cost grows
+linearly. The penalty is therefore not a constant.}
+\label{fig:s1}
+\end{figure}
+
+Offloaded TPOT is constant at $325 \pm 2$~ms while concurrency changes by a
+factor of eight, because each decode step must stream the entire expert pool
+regardless of how many sequences share it. Resident TPOT grows linearly, fitting
+$9.5 + 1.33n$ milliseconds across the four points measured. The penalty
+therefore falls from 21.8 to 6.25 purely by serving more sequences at once.
+
+This is the amortisation argument again, now in the decode phase: a fetched
+expert serves every sequence in the step, so cost per token falls as the step
+widens. Extrapolating the linear fit, the two costs meet near 237 concurrent
+sequences, which sits just above the 64 to 256 range production continuous
+batching operates in. We report that as an extrapolation from four points, not
+a measurement, and note only that offloaded decode is not categorically
+impossible: it is impractical at the concurrency levels deployments currently
+run, and the gap is smaller than a single measurement at low concurrency would
+suggest.
+
+\subsection{Placing it correctly}
+
+\begin{table}[htbp]
+\centering\small
+\caption{Throughput and prefill-side memory across the three configurations at
+32 concurrent sequences.}
+\label{tab:phaseaware}
+\begin{tabular}{lrrl}
+\toprule
+Configuration & Output tok/s & Share of resident & GPU memory \\
+\midrule
+Resident     & 334.4 & 100.0\% & 31.59 GB \\
+Offload, one engine & 86.1 & 25.7\% & 21.12 GB \\
+Phase-aware  & 339.2 & \textbf{101.4\%} & 21.12 GB prefill, 31.59 GB decode \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Placed correctly, offload costs nothing measurable in throughput and removes
+33\% of prefill-side memory. The phase-aware figure exceeds 100\% only because
+prefill and decode were measured separately and the difference is within
+run-to-run variation; the honest reading is parity.
+
+We do not model the KV cache handoff between prefill and decode workers, which
+is a real cost in a disaggregated deployment and one this measurement does not
+capture. What the measurement does establish is that the two phases want
+opposite memory configurations, and that a deployment which already separates
+them can take the memory saving on one side without paying for it on the other.
+
 % =====================================================================
 \section{Two smaller results}
 % =====================================================================
 
-\subsection{Pooling trades capacity for batch size, one for one}
+\subsection{Memory expansion and pooling}
+\label{sec:pooling}
 
-If $N$ nodes share one copy of the cold experts, they save $N$ times the capacity
-but contend for one link, so per-node bandwidth falls as $1/N$. Since $B^{*}$ is
-inversely proportional to bandwidth, both move together at exactly the same rate.
+Expansion and pooling are the two things a CXL tier offers that a bigger GPU does
+not, and they behave very differently.
 
-For Qwen3-235B against a 67.5~GB/s pool, sixteen nodes save 6.3~TB and require a
-1.5 million token batch, which is not a real operating point. Pooling is worth it
-at small $N$, or when the pool link scales with membership. The latter is what CXL
-3.0 switching promises, and it is precisely the part that is pre-production, so we
-model it and label it as modelled.
+\subsubsection*{Expansion: capacity is the deliverable}
+
+Expansion is the case measured throughout this report. One expander per node,
+holding that node's expert pool, converts a capacity problem into a bandwidth
+problem. Table~\ref{tab:footprint} gives the effect at model scale: DeepSeek-V3
+needs sixteen 80~GB devices to hold its weights and three with a 512~GB tier
+attached to each, because 1{,}218 of its 1{,}249~GB are experts. The GPUs that
+remain are the ones its arithmetic actually needs.
+
+MEMoE-RT demonstrates the endpoint of that argument on DeepSeek-V2-Lite: 31.4~GB
+of weights on a 23~GB device, running at 7{,}241 tokens per second, in 15.13~GB
+of GPU memory. Expansion is not an optimisation there, it is the difference
+between running and not running.
+
+\subsubsection*{Pooling: capacity and batch size move together}
+
+Pooling puts one copy of the cold experts behind a switch and lets $N$ nodes
+share it. The capacity argument is compelling and the bandwidth arithmetic is
+not.
+
+$N$ nodes sharing one pool save $N$ times the capacity, because the pool holds
+one copy rather than $N$. They also contend for one link, so per-node bandwidth
+falls as $1/N$. Since $B^{*}$ is inversely proportional to bandwidth, the batch
+size each node needs to stay above the crossover rises as $N$. The two scale at
+exactly one to one, and the tradeoff is therefore not a matter of tuning.
+
+\begin{table}[htbp]
+\centering\small
+\caption{Pooling Qwen3-235B-A22B behind a 67.5~GB/s pool. Capacity saved and
+required batch size both scale linearly with membership, so the product is
+constant.}
+\label{tab:pooling}
+\begin{tabular}{rrrr}
+\toprule
+Nodes & Capacity saved & Per-node bandwidth & Required batch $B^{*}$ \\
+\midrule
+1  &        0 GB & 67.50 GB/s &    93{,}771 \\
+2  &      423 GB & 33.75 GB/s &   187{,}543 \\
+4  & 1{,}269 GB & 16.88 GB/s &   375{,}087 \\
+8  & 2{,}961 GB &  8.44 GB/s &   750{,}174 \\
+16 & 6{,}345 GB &  4.22 GB/s & 1{,}500{,}349 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+At sixteen nodes the capacity saving is 6.3~TB, which is real money, and the
+required batch is 1.5 million tokens, which is not a real operating point. The
+useful region is small $N$: two to four nodes save meaningful capacity while
+keeping the required batch inside the range prefill already runs at.
+
+\subsubsection*{What would change the arithmetic}
+
+That one-to-one tradeoff holds only because the pool link is fixed while
+membership grows. Two developments break it in the right direction.
+
+A pool whose bandwidth scales with membership keeps per-node bandwidth constant,
+and $B^{*}$ with it. This is what CXL 3.0 multi-level switching with multiple
+upstream ports is for, and it is precisely the part that is pre-production. We
+model it and label every result that depends on it as modelled rather than
+measured, and the accompanying configuration carries \texttt{measured: false} so
+that no figure derived from it can be mistaken for a measurement.
+
+Memory interleaving across several expanders raises the per-node figure directly.
+Our gem5 channel-scaling measurement (\S\ref{sec:channels}) is the relevant
+evidence: four channels deliver 3.999 times one channel, so a four-way
+interleaved pool is a real 4$\times$, while eight deliver 6.670 times, or 83\%
+efficiency. Scaling a pool wide is worth doing and stops paying beyond roughly
+four ways on the fabric we modelled.
+
+Our recommendation follows from the shape rather than from any single
+number. Expansion is unconditionally worth it for MoE inference at prefill scale.
+Pooling is worth it at two to four nodes today, and becomes worth it at larger
+membership only when the pool link scales with the pool.
 
 \subsection{Fetch whole experts}
+\label{sec:granularity}
 
 At 300~ns access latency, the share of transfer time spent waiting rather than
 moving bytes is 0.16\% for a whole 12~MB expert, 3.72\% at 512~KB chunks, and
@@ -671,38 +1075,313 @@ Our PCIe measurements confirm the shape on real hardware: 33.05~GB/s at 4~MB
 rising to a 40.81~GB/s plateau at 64~MB and above.
 
 % =====================================================================
-\section{The CXL software path}
+\section{Two studies in tooling}
 % =====================================================================
 
-We investigated whether the Linux CXL stack can be exercised without hardware, in
-QEMU 9.1.0 with an emulated Type-3 device and an Ubuntu 24.04 guest.
+\subsection{Queueing, and what SimpleMemory cannot tell you}
 
-Everything up to region commit worked. The kernel negotiated CXL control through
-ACPI \texttt{\_OSC}, all four drivers bound, and the full decoder hierarchy
-enumerated with correct sizes and targets. Region creation then failed. Before
-committing a region the kernel must invalidate CPU caches over the range, and it
-gates that on a check which returns false whenever
-\texttt{X86\_FEATURE\_HYPERVISOR} is set, which is to say inside any virtual
-machine. The bypass exists as
-\texttt{CONFIG\_CXL\_REGION\_INVALIDATION\_TEST}, and Ubuntu's stock kernel does
-not enable it.
+We first tried to characterise contention in gem5, driving a bandwidth-limited
+memory through a traffic generator at offered loads from 5\% to 110\% of peak.
+Mean read latency came back as 150{,}000 ticks at every one of the nineteen
+operating points, identical to the tick, with zero standard deviation.
+\texttt{SimpleMemory} models a bandwidth cap by delaying packet release but
+returns its configured access latency unconditionally, so it cannot express
+queueing at all: there is no knee to find because there is no queue. This is
+worth recording because \texttt{SimpleMemory} is the default for memory studies
+that do not want the cost of a full controller model, and its output looks
+reasonable until compared across load. Characterising contention needs either a
+full DRAM controller or hardware, and Section~\ref{sec:overlap} gives the
+hardware answer: roughly 40\% of transfer time is exposed rather than hidden.
 
-We confirmed the diagnosis by elimination: identical failure across volatile and
-persistent device modes, with and without an explicit region size, and with the
-memory window both oversized and matched exactly.
+\subsection{Channel scaling, measured}
+\label{sec:channels}
 
-This establishes that the CXL software stack is real and functional through
-discovery, driver binding and decoder programming, and that region management
-cannot be exercised in a virtual machine on a stock kernel. It is worth stating
-that even a successful commit would not have validated a performance claim, since
-QEMU's CXL support is functional emulation with no timing model.
+Our four-channel figure of 67.5~GB/s, used elsewhere in this report is
+the measured single channel multiplied by four. DRAMSim3 could not measure it
+directly because its trace driver issues at most one request per cycle, which
+starves the additional channels. gem5's traffic generator has no such limit, so we
+repeated the experiment with real \texttt{MemCtrl} instances over interleaved
+DDR4-2400 channels.
 
-\screenshot{\texttt{cxl list} output in the QEMU guest showing the enumerated
-decoder hierarchy}{The CXL device enumerates completely and all decoders program
-correctly. Only region commit is blocked.}
+\begin{table}[htbp]
+\centering\small
+\caption{Channel scaling in gem5, DDR4-2400 x8, 100\% offered load, 512
+outstanding requests, over a 128-byte interconnect. Scaling is linear to four
+channels to within 0.03\%, and falls to 83\% efficiency at eight.}
+\label{tab:channels}
+\begin{tabular}{rrrr}
+\toprule
+Channels & Sustained & Ratio to one channel & Linear prediction \\
+\midrule
+1 & 13.86 GB/s & 1.000 & \\
+2 & 27.72 GB/s & 2.000 & 27.72 GB/s \\
+4 & \textbf{55.43 GB/s} & \textbf{3.999} & 55.45 GB/s \\
+8 & 92.46 GB/s & 6.670 & 110.90 GB/s \\
+\bottomrule
+\end{tabular}
+\end{table}
 
+Two things follow. First, a cross-validation: gem5 reports 13.86~GB/s sustained
+on a single DDR4-2400 channel against DRAMSim3's 14.96~GB/s on the same grade, a
+7\% disagreement between two independent simulators with different DRAM models
+and different address mapping. Neither reaches the 19.2~GB/s rating and both land
+in the same place, which is better support for our tier figure than either alone.
+Second, the scaling assumption behind our four-channel number is correct: four
+channels deliver 3.999 times a single channel against a linear prediction of
+4.000.
+
+Getting there took one diagnosis worth recording. On a 64-byte interconnect, four
+and eight channels returned identical bandwidth to the byte,
+31{,}998{,}912{,}000~B/s, with mean latency tripling. Identical throughput with a
+growing queue is a saturated fabric, not saturated memory, since memory would show
+diminishing returns instead of a hard ceiling. Widening the interconnect to 128
+bytes and raising its clock lifted the limit and the channels scaled. Scaling does
+degrade past four channels: eight deliver 6.670 times one, or 83\% efficiency, so
+the assumption holds exactly where we rely on it and would not extend to a wider
+expander without remeasurement.
+
+\subsection{Concurrency is a design constraint}
+\label{sec:concurrency}
+
+One incidental result shaped the runtime. Capping the traffic generator at 64
+outstanding requests made four and eight channels return identical bandwidth,
+30.77~GB/s at 133.1~ns, which Little's Law accounts for exactly:
+$64 \times 64\,\text{B} / 133.1\,\text{ns} = 30.79$~GB/s. The measurement was of
+the requestor, not the tier. Generalising, saturating a tier of bandwidth $BW$ at
+latency $L$ with requests of size $S$ needs $BW \cdot L / S$ requests in flight,
+roughly 160 for a 76.8~GB/s expander at 64-byte accesses. This is the transfer
+granularity result arriving from the other direction, and moving a whole layer as
+one DMA sidesteps it entirely: one descriptor replaces thousands of in-flight
+64-byte reads.
+
+\subsection{An event-driven check in SystemC}
+\label{sec:systemc}
+
+Our closed form and our runtime agree, but they are not independent: the closed
+form was calibrated against the runtime's resident baseline. A third
+implementation that shares no code with either is worth having, so we built the
+tiered path as a SystemC TLM-2.0 model.
+
+It is a small model, and deliberately literal. A \texttt{MemoryTier} target returns
+a delay of latency plus bytes over bandwidth, charging access latency once per
+transaction, so transaction size decides whether it behaves as a bandwidth or a
+latency device. A \texttt{CopyEngine} initiator issues one blocking transport per
+layer, carrying every non-resident expert of that layer, and blocks when the
+staging ring is full. A \texttt{ComputeEngine} consumes layers in order and
+accumulates the time it spends waiting on a layer that has not landed. Nothing
+in it knows about $B^{*}$.
+
+\begin{table}[htbp]
+\centering\small
+\caption{SystemC batch sweep at 30\% residency over a 40.8~GB/s tier, the same
+operating point as the runtime measurements. The closed form predicts
+$B^{*}=4{,}625$ for this configuration.}
+\label{tab:systemc}
+\begin{tabular}{rrr}
+\toprule
+Batch & Stall, \% of wall & Tokens/s \\
+\midrule
+256      & 94.5 &  1{,}154 \\
+1{,}024  & 78.2 &  4{,}570 \\
+4{,}096  & 16.1 & 17{,}561 \\
+4{,}625  &  5.9 & 19{,}698 \\
+16{,}384 &  1.7 & 20{,}566 \\
+32{,}768 &  0.9 & 20{,}746 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+
+Three results come out of it.
+
+\emph{The crossover appears where predicted.} Stall falls from 94.5\% to under
+6\% across the sweep, and the knee sits at the predicted 4{,}625 tokens. At that
+batch, per-layer transfer time is 13.814~ms and per-layer compute time is
+13.813~ms, which is what $B^{*}$ asserts and is not information the model was
+given.
+
+\emph{Above the crossover, all remaining stall is pipeline fill.} Residual stall
+is constant at 13.81~ms for every batch at or above $B^{*}$, exactly one layer
+transfer. That is the first layer, which cannot be prefetched because nothing
+precedes it. Steady-state stall is zero above $B^{*}$, and the small non-zero
+figures in the table are one fixed cost divided by a growing wall time.
+
+\emph{Lookahead depth buys nothing, independently confirmed.} At depth 1, 2, 4
+and 8 the model returns identical throughput and identical stall, while staging
+memory grows from 1.13~GB to 5.07~GB. Our trace-driven simulator originally
+recommended depth 4 to 8; the runtime measured depth 1 as sufficient
+(\S\ref{sec:depth}); the event-driven model now agrees with the hardware and not
+with our earlier recommendation. Once a whole layer moves as one transfer, one
+layer of lookahead is all the pipeline can use.
+
+Sweeping bandwidth behaves as the closed form requires: at 16.88, 40.8 and
+67.5~GB/s the model reports $B^{*}$ of 11{,}180, 4{,}625 and 2{,}796 tokens, an
+exact inverse proportionality. The ceiling throughput of 20{,}746 tokens per
+second also sits within 1\% of the measured resident baseline of 20{,}917 at
+batch 4{,}096, which is a check on the compute calibration rather than on the
+tier.
+
+\subsection{The CXL software path, end to end}
+
+Our third study asks whether the Linux CXL stack can be exercised without
+hardware. We used QEMU 9.1.0 with an emulated Type-3 volatile device, a 2~GB
+memory backend and a matched fixed memory window, under an Ubuntu 24.04 guest.
+
+On the distribution kernel, everything up to region commit worked. The kernel
+negotiated CXL control through ACPI \texttt{\_OSC}, all four drivers bound, and
+the full decoder hierarchy enumerated with correct sizes and targets: one root
+decoder, one port decoder and four endpoint decoders, with the memory device
+reporting 2~GB of RAM capacity. Region creation then failed with
+\texttt{failed to commit decode: No such device or address}.
+
+\begin{sloppypar}
+The cause is a deliberate safety check rather than missing functionality.
+Before committing a region the kernel must invalidate CPU caches over the
+range, and it gates that on \texttt{cpu\_cache\_has\_invalidate\_memregion()},
+which returns false whenever \texttt{X86\_FEATURE\_HYPERVISOR} is set. That is
+every virtual machine. The kernel provides a documented bypass,
+\texttt{CONFIG\_CXL\_REGION\_INVALIDATION\_TEST}, which distribution kernels do
+not enable, for good reason: without cache invalidation a committed region can
+serve stale data.
+\end{sloppypar}
+
+We built a 6.8 kernel with that option enabled and repeated the experiment. The
+region commits.
+
+\begin{table}[htbp]
+\centering\small
+\caption{Region state after commit, from sysfs, on the custom kernel. Region 0
+is live at 2~GB with a single interleave way targeting the endpoint decoder.}
+\label{tab:cxlregion}
+\begin{tabular}{ll}
+\toprule
+\texttt{region0/commit} & \texttt{1} \\
+\texttt{region0/resource} & \texttt{0x490000000} \\
+\texttt{region0/size} & \texttt{0x80000000} (2 GB) \\
+\texttt{region0/interleave\_ways} & \texttt{1} \\
+\texttt{region0/target0} & \texttt{decoder2.0} \\
+\texttt{decoder2.0/mode} & \texttt{ram} \\
+\texttt{decoder2.0/dpa\_size} & \texttt{0x80000000} \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+The kernel confirms which path it took:
+
+\begin{quote}\ttfamily\small
+cxl region0: Bypassing cpu\_cache\_invalidate\_memregion() for testing!
+\end{quote}
+
+Reaching that point required one step the command-line tool does not perform.
+The endpoint decoder must be given a device-physical address range before it
+can be attached as a region target, and \texttt{cxl create-region} leaves
+\texttt{dpa\_size} at zero, so attachment fails with ENXIO. Writing the size to
+sysfs directly, in hexadecimal, and then programming the region by hand
+completes the sequence.
+
+That conclusion is stronger than the one we could draw before. The CXL software
+stack is complete and functional through region management: discovery, driver
+binding, decoder programming, DPA allocation, region creation and commit all
+work under emulation. The only obstacle to exercising it in a virtual machine
+is a cache-coherence safety check that has nothing to do with CXL support
+itself. It remains true that this validates the software path and not
+performance, since QEMU's CXL support is functional emulation with no timing
+model, which is why the quantitative work in this report rests on DRAMSim3,
+gem5 and hardware measurement instead.
+
+% =====================================================================
+%  related-work.tex
+%  Drop into memoe.tex with \input{related-work.tex}
+%  Suggested placement: after the serving-loop section, before
+%  "Two smaller results". By that point every measurement this section
+%  refers to has already been presented.
+% =====================================================================
+
+\section{How this compares to existing expert offloading}
+
+Expert offloading is a well-populated area. Every system below starts from the
+same premise we do, that expert weights dominate the footprint and should not
+occupy HBM, and then diverges on what to do about it. The divergence is almost
+entirely about the batch size each system was designed for, which is the axis our
+closed form describes. This section places MEMoE-RT on that axis and states what
+its architecture buys as the deployment grows.
+
+\subsection{The design space, ordered by batch size}
+
+Existing systems divide by the batch size they were built for. \emph{Predict and
+cache}: Mixtral-offloading keeps an LRU cache of individual experts and
+speculatively prefetches one to two layers ahead, on the premise that consecutive
+tokens activate overlapping experts (arXiv:2312.17238); MoE-Infinity adds
+request-level tracing, ProMoE trains a predictor, HOBBIT varies expert precision,
+AdapMoE skips experts judged unimportant. All are evaluated at or near
+single-sequence decoding. \emph{Move the activation instead of the weight}:
+Fiddler copies activations to the host and runs the expert on the CPU, which it
+states is advantageous when the batch is sufficiently small (ICLR 2025,
+arXiv:2402.07033). \emph{Pipeline for throughput}: ZeRO-Inference offloads layer
+weights with prefetch and reports that full offload beats partial in that regime
+(DeepSpeed, 2022); FlexGen schedules across GPU, CPU and disk; MoE-Lightning adds
+a CPU-GPU-I/O pipeline and a Hierarchical Roofline Model, reporting up to
+10.3$\times$ over prior offloading systems on a single T4 (ASPLOS 2025,
+arXiv:2411.11217). \emph{Static placement}: llama.cpp's \texttt{--n-cpu-moe}
+pins whole expert tensors to host memory by layer, with no ranking and no
+prediction.
+
+\subsection{Why the first two groups stop at serving scale}
+
+Systems in the first two groups are not underdesigned. They are built for
+$B<B^{*}$, and three of our measurements say why their mechanisms stop paying
+above it. Coverage saturates, so a speculative prefetcher is guessing that every
+expert will fire, and it is right; the machinery becomes fixed cost against a
+decision that has become trivial. Hit rate equals resident fraction at batch 512
+and above, which collapses LRU, sampled LFU and static placement to one number,
+and a placement profiled on the wrong domain scores 0.383 against 0.500 for
+random. And Fiddler's premise, that $B \times d_{\text{model}}$ is small against
+$3\,d_{\text{model}}d_{\text{ff}}$, is linear in $B$, so it inverts at a batch
+size set by the same quantities that appear in Equation~\ref{eq:bstar}.
+
+Per-expert granularity carries a further cost. Saturating a tier of bandwidth
+$BW$ at latency $L$ with requests of size $S$ needs $BW \cdot L / S$ requests in
+flight, roughly 160 for a 76.8~GB/s expander at 64-byte granularity
+(\S\ref{sec:concurrency}). Moving a whole layer as one descriptor makes that
+requirement disappear instead of satisfying it.
+
+\subsection{Where the contribution sits}
+
+Several of MEMoE-RT's mechanisms have precedent, and the comparison is more useful
+for saying so. Layer-granular prefetch on a separate stream is what
+ZeRO-Inference does. Static unranked expert placement is what llama.cpp does. That
+full offload beats partial offload in the throughput regime is ZeRO-Inference's
+result, not ours. Having an analytical model select a policy is MoE-Lightning's
+HRM.
+
+What is new is the boundary itself. Existing systems optimise a point in the
+design space and report a speedup against a chosen baseline; Equation~\ref{eq:bstar}
+gives the batch size at which expert offload stops costing throughput, in closed
+form, independent of expert size and GPU count, and predicts the measured
+crossover to within 0.5\% on OLMoE-1B-7B and to within the resolution of our
+measurements on DeepSeek-V2-Lite. MoE-Lightning's HRM is the nearest relative and
+selects a micro-batch policy for a system in hand; $B^{*}$ is a threshold a reader
+can evaluate for hardware they do not own.
+
+Second, we can now give a reason for llama.cpp's design. Unranked static
+placement is, on our measurements, the correct choice at serving scale, and we can
+now say why: hit rate equals residency, so the ranking that the rest of the
+literature computes buys nothing above $B^{*}$, and a ranking computed on the
+wrong domain buys less than nothing. What remains is a capacity decision with a
+closed form, and a scheduling problem solved by moving whole layers one step ahead
+of demand.
+
+These design points are complementary rather than competing, and they partition
+cleanly by regime: predict-and-cache below $B^{*}$, contiguous layer streaming
+above it. Published figures across the two groups are not directly comparable,
+since retention against a resident baseline on a GPU that fits the model measures
+a different quantity from speedup against another offloading system on a GPU that
+does not. Running these systems on common hardware across the batch range, with
+$B^{*}$ predicting where each should win, is the experiment this framework is
+built to support.
 % =====================================================================
 \section{Recommendations}
+\label{sec:recommendations}
 % =====================================================================
 
 \begin{enumerate}[leftmargin=*]
@@ -740,19 +1419,30 @@ Stated in the order in which they would change a conclusion.
 
 \begin{itemize}
 \item \textbf{PCIe stands in for CXL.} The runtime measures the structure of the
-problem on a link of comparable bandwidth, not on CXL silicon. Latency
-characteristics and coherence differ.
-\item \textbf{One model family for routing.} Skew, coverage and specialisation
-come from OLMoE-1B-7B. Larger checkpoints with different router designs may
-behave differently, and the cross-domain analysis equalises to the shortest trace,
-resting on 18{,}239 tokens per workload.
+problem on links of comparable bandwidth, not on CXL silicon. What the
+substitution does not exercise is fine-grained coherence: snoop filter
+behaviour, flit packaging and cacheline-granular host memory semantics. Our
+access pattern is bulk DMA of whole layers, which touches none of that
+machinery, so the substitution is faithful for this workload specifically. It
+would not be faithful for a design that read expert weights at cacheline
+granularity, which our own transfer-size result argues against anyway.
+\item \textbf{One model family for routing traces.} The runtime is validated on
+two architectures, but skew, coverage and specialisation are measured on
+OLMoE-1B-7B alone, and the cross-domain analysis equalises to the shortest
+trace, resting on 18{,}239 tokens per workload. Larger checkpoints with
+different router designs may distribute differently.
 \item \textbf{Four-channel bandwidth is scaled from a validated law.} The
 scaling itself is measured: four channels deliver 3.999 times one channel in gem5.
 Scaling would not extend to a wider expander without remeasurement, since eight
 channels reach only 83\% efficiency.
-\item \textbf{The runtime does batched prefill, not full serving.} There is no
-integration with a production serving stack, no paged KV cache, and no continuous
-batching scheduler.
+\item \textbf{The serving loop is ours, not a production engine.} It implements
+a KV cache and continuous batching, which is enough to measure time to first
+token and time per output token under load, but there is no PagedAttention, no
+preemption and no prefix caching, and the cache is contiguous per sequence
+rather than paged. Integration with vLLM or SGLang remains the natural next
+step. We also do not model the KV handoff between prefill and decode workers,
+so the phase-aware figures are per-phase measurements composed, not an
+end-to-end disaggregated deployment.
 \item \textbf{Compute counts routed expert GEMMs only.} Attention and dense layers
 would hide additional transfer, so the model errs conservative.
 \item \textbf{Pooling is analytical.} No shipping CXL 3.0 switch silicon exists to
@@ -767,24 +1457,34 @@ We set out to test whether a slow memory tier can hold Mixture-of-Experts weight
 The answer is bounded and useful: yes during prefill, no during decode, and not
 for the reason the literature assumes.
 
-The mechanism that makes it work is not caching. Coverage saturates, so the fast
+What makes it work is not caching. Coverage saturates, so the fast
 tier is a partition rather than a cache, and every policy that ranks experts by
 popularity reduces to the same hit rate. What remains is a capacity decision, with
 a closed form that predicts the operating point, and a scheduling problem solved
 by moving whole layers one step ahead of demand.
 
-MEMoE-RT demonstrates the result on hardware: 93\% of a real checkpoint's
-parameters held outside GPU memory, 2.44 times less GPU memory, and 91.9\% of
-throughput retained at prefill scale. The closed form predicted the crossover
-between the working and failing regimes to within 0.5\% of where it was measured,
-which is the strongest evidence we can offer that the analysis generalises to
-hardware we could not buy.
+MEMoE-RT demonstrates the result on hardware, twice. On OLMoE-1B-7B, 93\% of the
+parameters sit outside GPU memory for a 2.44-fold memory reduction and 91.9\% of
+throughput at prefill scale, with the closed form predicting the crossover to
+within 0.5\% of where it was measured. On DeepSeek-V2-Lite the demonstration is
+sharper still: 31.4~GB of weights running on a 23~GB device at 7{,}241 tokens
+per second, with the same regime boundary appearing at the batch size the same
+formula predicts, over a different link and a different router.
+
+A model predicting a held-out operating point on hardware it was never fitted to
+is the strongest evidence we can offer that the analysis generalises to memory
+technology we could not buy.
 
 \vspace{6pt}
-\noindent\textbf{Artifacts.} Code, traces, results and the interactive dashboard
-are at \url{https://github.com/AshBlake12/memoe}. Every figure in this report is
-regenerated by \texttt{scripts/run\_all.py}, \texttt{run\_real.py},
-\texttt{run\_extras.py}, \texttt{sweep\_dramsim.py},
-\texttt{bench\_runtime.py} and \texttt{plot\_runtime.py}.
+\noindent\textbf{Artifacts and the long-form report.} Code, traces, results and
+the interactive dashboard are at \url{https://github.com/AshBlake12/memoe}. Run
+\texttt{scripts/reproduce.sh} and every table and figure here regenerates
+byte-identical on a CPU, with no GPU and no downloads.
+
+\noindent This document is the short version. The full report, which keeps the
+per-stage measurements, the complete gem5 and DRAMSim3 sweeps, the SystemC
+model listing and the extended related-work discussion, is
+\texttt{docs/full-report.pdf} in the same repository. Deliverable-by-deliverable
+coverage is mapped in the repository README.
 
 \end{document}

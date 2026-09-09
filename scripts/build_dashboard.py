@@ -21,11 +21,11 @@ from pathlib import Path
 import plotly.graph_objects as go
 
 # --------------------------------------------------------------------------
-# Measured data
+# measured data
 # --------------------------------------------------------------------------
 
 # DRAMSim3, DDR4 x8 configs, 12 MB sequential expert read (196,608 x 64 B).
-# Bandwidth from average_interarrival, not the diluted headline figure.
+# bandwidth from average_interarrival, not the diluted headline figure.
 DRAM_SWEEP = [
     # grade, theoretical GB/s, measured GB/s, efficiency %, loaded latency ns
     ("DDR4-1866", 14.9, 12.76, 85.5, 237.9),
@@ -49,7 +49,7 @@ ROUTING = [
     ("code", 139778, 1.132, 0.877, 0.522, 63.6),
 ]
 
-# Fraction of experts touched per layer, per batch. Real traces.
+# fraction of experts touched per layer, per batch. Real traces.
 COVERAGE_BATCH = [16, 64, 256, 1024, 4096]
 COVERAGE = {
     "chat": [0.648, 0.882, 0.986, 1.000, 1.000],
@@ -58,7 +58,7 @@ COVERAGE = {
     "prose": [0.669, 0.895, 0.974, 0.997, 1.000],
 }
 
-# Top-25% hot-set overlap per layer. Diagonal is the split-half self-overlap
+# top-25% hot-set overlap per layer. Diagonal is the split-half self-overlap
 # control. 25% is chance.
 DOMAINS = ["chat", "code", "math", "prose"]
 OVERLAP = {
@@ -69,7 +69,7 @@ OVERLAP = {
     ("code", "chat"): 18.4, ("prose", "code"): 15.2,
 }
 
-# Fetch hit rate when a placement profiled on one workload is deployed on
+# fetch hit rate when a placement profiled on one workload is deployed on
 # another, 50% residency. Random placement scores 0.500.
 PENALTY_ROWS = ["chat", "code", "math", "prose"]      # profiled on
 PENALTY_COLS = ["chat", "code", "math", "prose"]      # deployed on
@@ -80,7 +80,7 @@ PENALTY = [
     [0.551, 0.383, 0.584, 0.709],
 ]
 
-# Simulator sweep across synthetic skew, 90% of experts resident.
+# simulator sweep across synthetic skew, 90% of experts resident.
 SKEW_SWEEP_BATCH = [64, 512, 8192]
 SKEW_SWEEP = {
     "s = 0.0": [0.899, 0.899, 0.899],
@@ -89,7 +89,7 @@ SKEW_SWEEP = {
     "s = 1.5": [0.927, 0.899, 0.899],
 }
 
-# Footprint model, validated against published parameter counts.
+# footprint model, validated against published parameter counts.
 MODELS = {
     "OLMoE-1B-7B":     dict(experts=64,  k=8, weights=12.9,   pool=12.0,   gpus_hbm=1,  gpus_cxl=1, kv_intensity=1.0),
     "Mixtral-8x7B":    dict(experts=8,   k=2, weights=87.0,   pool=84.0,   gpus_hbm=2,  gpus_cxl=1, kv_intensity=4.0),
@@ -97,10 +97,10 @@ MODELS = {
     "DeepSeek-V3":     dict(experts=256, k=9, weights=1249.2, pool=1218.0, gpus_hbm=16, gpus_cxl=3, kv_intensity=1.0),
 }
 
-# Per-GPU effective compute used by the stall model: 40% MFU on H100 BF16.
+# per-GPU effective compute used by the stall model: 40% MFU on H100 BF16.
 FLOPS = 3.956e14
 
-# Share of the expert pool that fits on CXL inside a 10% stall budget,
+# share of the expert pool that fits on CXL inside a 10% stall budget,
 # from the real traces against the measured tier.
 OFFLOADABLE = [
     # batch, 16.88 GB/s, 67.5 GB/s
@@ -110,10 +110,10 @@ OFFLOADABLE = [
     ("131,072 (code)", "59.5%", "94.0%"),
 ]
 
-# Qwen3-235B, 32k context, 5.875 GB of KV read per decode step.
+# qwen3-235B, 32k context, 5.875 GB of KV read per decode step.
 KV_STEPS = [("HBM3e", 1.883, 531), ("CXL 4 channel", 93.455, 11), ("CXL 1 channel", 373.710, 3)]
 
-# Qwen3-235B against a 67.5 GB/s pool.
+# qwen3-235B against a 67.5 GB/s pool.
 POOLING = [
     # nodes, per-node BW, dedicated GB, pooled GB, B* at h=0.9
     (1, 67.50, 423.0, 423.0, 93771),
@@ -133,7 +133,7 @@ GRANULARITY = [
 ]
 
 # --------------------------------------------------------------------------
-# Design tokens
+# design tokens
 # --------------------------------------------------------------------------
 
 C = dict(
@@ -188,7 +188,7 @@ def fig_shell(height: int, **over) -> dict:
 
 
 # --------------------------------------------------------------------------
-# Figures
+# figures
 # --------------------------------------------------------------------------
 
 def fig_dram() -> go.Figure:

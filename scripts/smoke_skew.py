@@ -1,7 +1,12 @@
 # smoke_skew.py — 5k tokens, ~10 min including load
-import torch, sys
+import sys
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(ROOT))
+
+import torch
 from transformers import AutoModelForCausalLM, AutoTokenizer
-sys.path.insert(0, ".")
 from memoe.hooks import capture
 from memoe.skew import skew_stats, coverage_curve
 
@@ -21,7 +26,7 @@ with capture(model, n_experts=64, top_k=8) as cap:
                         max_length=512).to("cuda"))
 
 tr = cap.trace("OLMoE-1B-7B")
-tr.save("results/olmoe_smoke.npz")
+tr.save(str(ROOT / "results" / "olmoe_smoke.npz"))
 c = tr.counts()
 print(tr.ids.shape)
 print({k: round(v, 3) for k, v in skew_stats(c)["aggregate"].items()})

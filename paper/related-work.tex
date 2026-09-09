@@ -1,0 +1,206 @@
+% =====================================================================
+%  related-work.tex
+%  Drop into memoe.tex with \input{related-work.tex}
+%  Suggested placement: after the serving-loop section, before
+%  "Two smaller results". By that point every measurement this section
+%  refers to has already been presented.
+% =====================================================================
+
+\section{How this compares to existing expert offloading}
+
+Expert offloading is a well-populated area. Every system below starts from the
+same premise we do, that expert weights dominate the footprint and should not
+occupy HBM, and then diverges on what to do about it. The divergence is almost
+entirely about the batch size each system was designed for, which is the axis our
+closed form describes. This section places MEMoE-RT on that axis and states what
+its architecture buys as the deployment grows.
+
+\subsection{The design space, ordered by batch size}
+
+\textbf{Predict and cache, at batch one.} The largest group treats expert
+selection as predictable and expert reuse as temporally local.
+Mixtral-offloading keeps an LRU cache of individual experts on the GPU and
+speculatively prefetches one to two layers ahead, on the premise that consecutive
+tokens activate overlapping experts (Eliseev and Mazur, arXiv:2312.17238).
+MoE-Infinity adds request-level activation tracing, ProMoE trains a predictor,
+HOBBIT varies expert precision by importance and compares LRU against
+sequence-level LFU and a layer-distance policy, and AdapMoE skips experts judged
+unimportant. All of them are built and evaluated at or near single-sequence
+decoding on consumer hardware.
+
+\textbf{Move the activation instead of the weight.} Fiddler observes that at
+small batch an activation is far smaller than an expert's weights, and therefore
+copies activations to the host and executes the expert layer on the CPU rather
+than moving weights to the GPU (Kamahori et al., ICLR 2025, arXiv:2402.07033).
+Initial placement is popularity-ranked from calibration data. The paper is
+explicit that the advantage holds when the batch is sufficiently small, which
+makes its design point and ours two sides of the same boundary.
+
+\textbf{Pipeline for throughput.} ZeRO-Inference offloads layer weights to host
+or NVMe with prefetch and targets throughput at large batch rather than
+single-request latency; its own reported finding is that in that regime full
+offload beats partial offload, because the larger batch it enables more than pays
+for the transfer (DeepSpeed, 2022). FlexGen schedules tensor placement across
+GPU, CPU and disk. MoE-Lightning adds a CPU-GPU-I/O pipeline with paged weights
+and a Hierarchical Roofline Model used to select a policy, reporting up to
+10.3$\times$ over prior offloading systems for Mixtral-8x7B on a single T4 (Cao
+et al., ASPLOS 2025, arXiv:2411.11217). MoE-Gen batches per module.
+
+\textbf{Static placement, in production.} llama.cpp's \texttt{--cpu-moe},
+\texttt{--n-cpu-moe} and \texttt{--override-tensor} pin whole routed-expert
+tensors to host memory by layer. There is no ranking and no prediction. It is the
+simplest arrangement that works and it is what most practitioners actually run.
+
+\subsection{Why the first two groups do not carry to serving scale}
+
+The systems in the first two groups are not underdesigned. They are correctly
+designed for $B < B^{*}$, and three of our measurements explain why their
+mechanisms stop paying above it.
+
+\emph{Prediction has nothing left to predict.} Coverage saturates at 97.3\% to
+100\% by a batch of 1{,}024 tokens (Section~4.2). A speculative prefetcher that
+guesses which experts will fire is, at serving batch sizes, guessing that all of
+them will, and it is right. The prediction machinery becomes a fixed cost against
+a decision that has become trivial.
+
+\emph{Ranking has nothing left to rank.} Fetch hit rate equals resident fraction
+exactly at every routing skew we tested at batch 512 and above
+(Table~\ref{tab:skewsweep}), which collapses LRU, sampled LFU and static
+placement to the same number. An LRU cache above $B^{*}$ is a fixed partition
+that pays eviction bookkeeping for nothing. Worse, a placement profiled on one
+domain scores 0.383 against 0.500 for random when it meets another
+(Section~4.4), so calibration-derived ranking is not merely inert at scale but
+can be negative.
+
+\emph{Activation size overtakes weight size.} Fiddler's premise is that
+$B \times d_{\text{model}}$ is small against $3 \, d_{\text{model}}
+d_{\text{ff}}$. That ratio is linear in $B$, so the premise inverts at a batch
+size determined by the same quantities that appear in Equation~\ref{eq:bstar}.
+Above the crossover, moving the weights once per layer and computing on the GPU
+is the cheaper arrangement, which is what MEMoE-RT does.
+
+\emph{Per-expert granularity fails a concurrency requirement.} Systems that fetch
+experts individually issue many small transfers. Section~12.3 gives the standing
+requirement: saturating a tier of bandwidth $BW$ at latency $L$ with requests of
+size $S$ needs $BW \cdot L / S$ requests in flight, roughly 160 for a 76.8~GB/s
+expander at 64-byte granularity. Our transfer-size measurement gives the same
+result from the other direction, with time spent waiting rather than moving rising
+from 0.16\% for a whole 12~MB expert to 83.18\% at 4~KB. A fetch engine built
+around individual experts is committed to a concurrency budget it must then work
+to meet.
+
+\subsection{What our architecture does instead}
+
+MEMoE-RT is built from those three findings rather than around them, and each
+design decision is a deletion.
+
+Because coverage saturates, there is no predictor. Because ranking is inert, there
+is no popularity ordering anywhere in the implementation; the resident set is the
+low expert indices. Because latency is negligible at expert granularity and
+dominant below it, there is no per-expert fetch path: every non-resident expert
+of layer $L+d$ moves as one contiguous transfer, issued $d$ layers ahead on a
+dedicated copy stream, into a ring of $d+1$ staging buffers where layer $L$
+occupies slot $L \bmod (d+1)$.
+
+That single-descriptor-per-layer structure is what makes the concurrency
+requirement disappear rather than be satisfied: one large DMA replaces thousands
+of in-flight small reads, and a single expert-sized transfer already reaches 90\%
+of the PCIe plateau. It is also what made deep lookahead unnecessary. Our own
+simulator, which modelled per-expert on-demand fetches, recommended depth 4 to 8;
+the runtime measured depth 1 as sufficient and depth 8 as 41\% more staging memory
+for slightly less throughput (Section~7.3). Batching the transfer by layer removed
+the need for depth, and we report the correction rather than the original
+recommendation.
+
+The second architecture path is the part that generalises furthest. Rather than
+reimplement routing per model family, it points each offloaded expert's projection
+weights at a view into the staging buffer and drives the tier from pre- and
+post-hooks on the MoE block. Because layer $L$ always lands in slot
+$L \bmod (d{+}1)$ at a fixed offset, those views are bound once at load time and
+remain correct for the process lifetime. The model's forward is untouched. This is
+why the same runtime covers both a fused-expert checkpoint and DeepSeek-V2-Lite's
+own modelling code, with different top-$k$, shared experts, a dense first layer
+and multi-head latent attention, without architecture-specific transfer logic.
+
+\subsection{Scaling behaviour}
+
+The distinction that matters for a deployment is how each design behaves as the
+workload grows along four axes.
+
+\begin{table}[htbp]
+\centering\small
+\caption{Scaling behaviour by axis. The first two groups are built for the
+left-hand end of the batch axis and their mechanisms lose value moving right; the
+throughput group and MEMoE-RT gain value moving right.}
+\label{tab:scaling}
+\begin{tabular}{lll}
+\toprule
+Axis & Predict-and-cache designs & MEMoE-RT \\
+\midrule
+Batch size & Hit rate $\to$ residency; predictor idles & Cost per token falls as $1/B$ \\
+Transfer count & Grows with experts touched & One descriptor per layer, fixed \\
+Model size & Bounded by what the GPU holds & Bounded by host memory \\
+GPU count & Placement re-profiled per deployment & $B^{*}$ independent of $N$ \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\textbf{Batch.} A fetched expert serves $Bk/E$ tokens, so expert arithmetic
+intensity grows with the batch while the transfer cost is paid once. This is why
+the same configuration costs 62\% of throughput at a decode-sized batch and 5.6\%
+at a prefill-sized one, and why offloaded decode time per output token is flat at
+$325 \pm 2$~ms across an eightfold change in concurrency while resident cost grows
+linearly (Section~10.2).
+
+\textbf{Transfer count.} Per-layer batching makes the number of transfers a
+function of depth and layer count alone, not of routing, batch size or residency.
+The bytes moved scale; the descriptor count does not.
+
+\textbf{Model size.} Because placement is by capacity rather than by profile, the
+resident fraction is a free parameter down to zero. DeepSeek-V2-Lite is 31.4~GB
+against a 23~GB device, so no resident baseline exists at all, and MEMoE-RT runs
+it in 15.13~GB at 7{,}241 tokens per second. Designs that keep a hot set sized
+from a profile do not have that degree of freedom in the same way.
+
+\textbf{GPU count.} $B^{*}$ is independent of both expert size and GPU count,
+because a larger expert costs proportionally more to move and does proportionally
+more work once moved, and because compute and per-node bandwidth scale together
+under tensor parallelism. The operating point therefore transfers across
+deployment sizes without re-derivation. Pooling is the one place this changes, and
+it changes predictably: capacity saving and required batch size both scale with
+node count, at one to one.
+
+\subsection{Where the contribution sits}
+
+Several of MEMoE-RT's mechanisms have precedent, and the comparison is more useful
+for saying so. Layer-granular prefetch on a separate stream is what
+ZeRO-Inference does. Static unranked expert placement is what llama.cpp does. That
+full offload beats partial offload in the throughput regime is ZeRO-Inference's
+result, not ours. Having an analytical model select a policy is MoE-Lightning's
+HRM.
+
+What is new is the boundary itself. Existing systems optimise a point in the
+design space and report a speedup against a chosen baseline; Equation~\ref{eq:bstar}
+gives the batch size at which expert offload stops costing throughput, in closed
+form, independent of expert size and GPU count, and predicts the measured
+crossover to within 0.5\% on OLMoE-1B-7B and to within the resolution of our
+measurements on DeepSeek-V2-Lite. MoE-Lightning's HRM is the nearest relative and
+selects a micro-batch policy for a system in hand; $B^{*}$ is a threshold a reader
+can evaluate for hardware they do not own.
+
+The second new element is the reason behind llama.cpp's design. Unranked static
+placement is, on our measurements, the correct choice at serving scale, and we can
+now say why: hit rate equals residency, so the ranking that the rest of the
+literature computes buys nothing above $B^{*}$, and a ranking computed on the
+wrong domain buys less than nothing. What remains is a capacity decision with a
+closed form, and a scheduling problem solved by moving whole layers one step ahead
+of demand.
+
+These design points are complementary rather than competing, and they partition
+cleanly by regime: predict-and-cache below $B^{*}$, contiguous layer streaming
+above it. Published figures across the two groups are not directly comparable,
+since retention against a resident baseline on a GPU that fits the model measures
+a different quantity from speedup against another offloading system on a GPU that
+does not. Running these systems on common hardware across the batch range, with
+$B^{*}$ predicting where each should win, is the experiment this framework is
+built to support.

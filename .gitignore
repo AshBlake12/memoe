@@ -1,11 +1,28 @@
+# Python
 __pycache__/
 *.pyc
+*.egg-info/
 .venv/
 venv/
-*.egg-info/
-traces/*.parquet
-traces/data/
-results/gem5/
+
+# Build / scratch
 *.tgz
 *.log
 gem5-src/
+paper/*.aux
+paper/*.out
+paper/*.toc
+paper/*.fdb_latexmk
+paper/*.fls
+paper/*.synctex.gz
+
+# Large inputs that are re-derivable or fetched, not authored here.
+traces/*.parquet
+traces/data/
+results/gem5/
+
+# results/dashboard.html IS committed on purpose: it is the demo artifact and
+# a reader must be able to open it without a Python environment.
+
+# SystemC build artifact (rebuild with: cd systemc && make)
+systemc/memoe_tlm

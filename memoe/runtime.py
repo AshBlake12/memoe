@@ -42,7 +42,7 @@ from torch import nn
 
 
 # --------------------------------------------------------------------------
-# Discovery
+# discovery
 # --------------------------------------------------------------------------
 
 @dataclass
@@ -91,7 +91,7 @@ def discover_moe_blocks(model: nn.Module) -> list[MoESpec]:
 
 
 # --------------------------------------------------------------------------
-# Statistics
+# statistics
 # --------------------------------------------------------------------------
 
 @dataclass
@@ -119,7 +119,7 @@ class RunStats:
 
 
 # --------------------------------------------------------------------------
-# The tier
+# the tier
 # --------------------------------------------------------------------------
 
 class ExpertTier:
@@ -162,7 +162,7 @@ class ExpertTier:
         self.stats = RunStats()
         self._layer_bytes = []
 
-    # -- construction ------------------------------------------------------
+    # -- setup, done once at load time -------------------------------------
 
     def build(self, specs, residency: float) -> None:
         s0 = specs[0]
@@ -202,8 +202,9 @@ class ExpertTier:
             else:
                 host, pos = None, {}
 
-            # Release the fused tensors. The modules stay in the tree so the
-            # rest of the model moves to the GPU normally; they hold nothing.
+            # drop the fused weights but leave the modules in place. the
+            # rest of .to(device) then walks the tree normally and finds
+            # empty shells here instead of 12 GB of experts.
             spec.experts.gate_up_proj.data = torch.empty(0, dtype=self.dtype)
             spec.experts.down_proj.data = torch.empty(0, dtype=self.dtype)
 
@@ -226,7 +227,7 @@ class ExpertTier:
                 ev.record()
                 self.consumed.append(ev)
 
-    # -- runtime -----------------------------------------------------------
+    # -- called on every forward --------------------------------------------
 
     def reset_stats(self) -> None:
         self.stats.bytes_streamed = 0
@@ -298,7 +299,7 @@ class ExpertTier:
 
 
 # --------------------------------------------------------------------------
-# The replacement block
+# the replacement block
 # --------------------------------------------------------------------------
 
 class TieredMoE(nn.Module):
@@ -347,7 +348,7 @@ class TieredMoE(nn.Module):
 
 
 # --------------------------------------------------------------------------
-# Wiring
+# wiring
 # --------------------------------------------------------------------------
 
 def tier_model(model: nn.Module, residency: float, depth: int = 2,

@@ -1,12 +1,33 @@
 [project]
-name = "memoe-proj"
-version = "0.1.0"
-requires-python = ">=3.14"
+name = "memoe"
+version = "1.0.0"
+description = "MoE-oriented memory expansion: when does offloading expert weights to a slower tier pay?"
+requires-python = ">=3.10"
+
+# Everything needed for the analysis, simulation and dashboard pipeline.
+# This set is what `scripts/reproduce.sh` runs on, and it is CPU-only.
 dependencies = [
-    "matplotlib>=3.11.1",
-    "numpy>=2.5.2",
-    "torch>=2.13.0",
+    "numpy>=1.24",
+    "pandas>=2.0",
+    "pyyaml>=6.0",
+    "matplotlib>=3.7",
+    "tabulate>=0.9",
+    "plotly>=5.18",
 ]
+
+[project.optional-dependencies]
+# The runtime benchmarks only. Needs a CUDA GPU; not required to reproduce
+# any table or figure in results/.
+runtime = [
+    "torch>=2.4",
+    "transformers>=4.44",
+    "accelerate>=0.30",
+    "datasets>=2.19",
+]
+dev = ["pytest>=7.0"]
 
 [tool.setuptools]
 packages = ["memoe"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

@@ -1,6 +1,11 @@
-import sys, glob, torch
+import sys
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(ROOT))
+
+import glob, torch
 from transformers import AutoModelForCausalLM, AutoTokenizer
-sys.path.insert(0, ".")
 from memoe.hooks import capture
 from memoe.skew import skew_stats, coverage_curve
 
@@ -41,7 +46,7 @@ for domain in ["prose", "math", "code", "chat"]:
                 model(**tok(t, return_tensors="pt", truncation=True,
                             max_length=512).to("cuda"))
     tr = cap.trace(f"OLMoE-1B-7B-{domain}")
-    tr.save(f"results/traces/olmoe_{domain}.npz")
+    tr.save(str(ROOT / "results" / "traces" / f"olmoe_{domain}.npz"))
     c = tr.counts(); st = skew_stats(c)["aggregate"]
     f, cov = coverage_curve(c)
     print(f"\n=== {domain}: {tr.ids.shape[0]} tokens")
