@@ -329,15 +329,14 @@ class TieredMoE(nn.Module):
         out = torch.zeros_like(x)
         with torch.no_grad():
             mask = F.one_hot(top_k_index, num_classes=self.n_experts).permute(2, 1, 0)
-            hit = torch.greater(mask.sum(dim=(-1, -2)), 0).nonzero()
+            hit = torch.greater(mask.sum(dim=(-1, -2)), 0).nonzero().cpu().view(-1).tolist()
 
         for e in hit:
-            e = e[0]
             if e == self.n_experts:
                 continue
             top_k_pos, token_idx = torch.where(mask[e])
             cur = x[token_idx]
-            w_gu, w_dn = self.tier.weights(self.layer, int(e))
+            w_gu, w_dn = self.tier.weights(self.layer, e)
             gate, up = F.linear(cur, w_gu).chunk(2, dim=-1)
             h = self.act_fn(gate) * up
             h = F.linear(h, w_dn) * top_k_weights[token_idx, top_k_pos, None]
