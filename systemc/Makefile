@@ -13,8 +13,10 @@ CXXFLAGS ?= -std=c++17 -O2 -Wall
 TARGET    = memoe_tlm
 
 ifdef SYSTEMC_HOME
+  # autotools installs put the library in lib-linux64, CMake installs in lib64 or lib
+  SYSTEMC_LIBDIR ?= $(firstword $(wildcard $(SYSTEMC_HOME)/lib-linux64 $(SYSTEMC_HOME)/lib64 $(SYSTEMC_HOME)/lib))
   CXXFLAGS += -I$(SYSTEMC_HOME)/include
-  LDFLAGS  += -L$(SYSTEMC_HOME)/lib-linux64 -Wl,-rpath,$(SYSTEMC_HOME)/lib-linux64
+  LDFLAGS  += -L$(SYSTEMC_LIBDIR) -Wl,-rpath,$(SYSTEMC_LIBDIR)
 endif
 LDLIBS += -lsystemc
 

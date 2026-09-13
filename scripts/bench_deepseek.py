@@ -87,7 +87,8 @@ def check(args) -> int:
     g = torch.Generator().manual_seed(0)
     ids = torch.randint(0, m.config.vocab_size, (2, 128), generator=g).to(dev)
 
-    tier = tier_model_modulelist(m, residency=0.5, depth=args.depth, device=dev)
+    # 0.5 peaks at ~22.5 of 23 GB on an A10 and cuBLAS then fails to get workspace
+    tier = tier_model_modulelist(m, residency=0.25, depth=args.depth, device=dev)
     tier.warmup()
     a = m(ids).logits.float().cpu()
     del m, tier
@@ -151,7 +152,7 @@ def bench(args) -> int:
         gc.collect(); torch.cuda.empty_cache()
         torch.cuda.reset_peak_memory_stats(dev)
 
-    out = Path("results/runtime_deepseek.csv")
+    out = Path(args.out)
     out.parent.mkdir(parents=True, exist_ok=True)
     with out.open("w", newline="") as fh:
         w = csv.DictWriter(fh, fieldnames=list(rows[0].keys()))
@@ -171,6 +172,7 @@ def main() -> int:
     p.add_argument("--depth", type=int, default=2)
     p.add_argument("--residency", type=float, nargs="+", default=[0.0])
     p.add_argument("--check", action="store_true")
+    p.add_argument("--out", default="results/runtime_deepseek.csv")
     a = p.parse_args()
     return check(a) if a.check else bench(a)
 

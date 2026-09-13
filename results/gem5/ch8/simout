@@ -1,0 +1,13 @@
+Global frequency set at 1000000000000 ticks per second
+Redirecting stdout to results/gem5/ch8/simout
+Redirecting stderr to results/gem5/ch8/simerr
+gem5 Simulator System.  https://www.gem5.org
+gem5 is copyrighted software; use the --copyright option for details.
+
+gem5 version 22.1.0.0
+gem5 compiled Sep 14 2026 03:02:50
+gem5 started Sep 14 2026 03:13:27
+gem5 executing on bhaskar, pid 33308
+command line: /home/yammanuru/local/src/gem5/build/NULL/gem5.opt -re --outdir=results/gem5/ch8 gem5/channel_scaling.py --gem5-configs /home/yammanuru/local/src/gem5/configs --channels 8
+
+info: Standard input is not a terminal, disabling listeners.

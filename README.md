@@ -108,6 +108,11 @@ paper/          LaTeX source (working copy lives in Overleaf)
 | `setup_dsmod.sh` | builds the patched DeepSeek modelling package |
 | `emit_dramsim_traces.py`, `sweep_dramsim.py`, `parse_dramsim.py` | DRAMSim3 tier characterisation |
 | `parse_gem5.py` | gem5 channel-scaling results |
+| `demo_a10.sh` | one command per demo shot on the A10 machine |
+| `gem5/run_channels.sh` | gem5 1/2/4/8-channel sweep, config in `gem5/channel_scaling.py` |
+
+Building gem5, SystemC, DRAMSim3 and QEMU without root and running every
+component on one A10 machine: `docs/SETUP.md`. Video script: `docs/demo-script-a10.md`.
 
 ## Reproducing
 

@@ -83,18 +83,30 @@ def correctness(args) -> int:
     del ref_model
     gc.collect(); torch.cuda.empty_cache()
 
-    m = load(args.ckpt)
-    tier = tier_model(m, residency=0.25, depth=args.depth, device=device)
-    m.to(device)
-    tier.warmup()
-    got = m(ids).logits.float().cpu()
+    def tiered(residency):
+        m = load(args.ckpt)
+        tier = tier_model(m, residency=residency, depth=args.depth, device=device)
+        m.to(device)
+        tier.warmup()
+        out = m(ids).logits.float().cpu()
+        del m, tier
+        gc.collect(); torch.cuda.empty_cache()
+        return out
 
+    got = tiered(0.25)
     diff = (ref - got).abs()
     rel = (diff.max() / ref.abs().max()).item()
-    print(f"max abs diff {diff.max().item():.5f}   relative {rel:.2e}")
+    print(f"vs reference:  max abs diff {diff.max().item():.5f}   relative {rel:.2e}")
     agree = (ref.argmax(-1) == got.argmax(-1)).float().mean().item()
-    print(f"argmax agreement {agree:.4%}")
-    ok = agree > 0.90
+    top5 = (torch.topk(ref, 5, -1).indices == got.argmax(-1, keepdim=True)).any(-1)
+    top5 = top5.float().mean().item()
+    print(f"vs reference:  argmax agreement {agree:.4%}   in reference top-5 {top5:.4%}")
+
+    # the reference gap is bf16 rounding in our MoE forward, and it is identical
+    # at every residency; what offload itself must do is change nothing at all
+    inv = (tiered(1.0) - got).abs().max().item()
+    print(f"offload invariance: 25% vs 100% resident, max abs diff {inv:.5f}")
+    ok = inv == 0.0 and top5 > 0.99
     print("PASS" if ok else "FAIL")
     return 0 if ok else 1
 
@@ -137,7 +149,7 @@ def bench(args) -> int:
             gc.collect(); torch.cuda.empty_cache()
             torch.cuda.reset_peak_memory_stats(device)
 
-    out_dir = Path("results")
+    out_dir = Path(args.out_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
 
     # keep every trial. this is the raw record, nothing gets thrown away
@@ -239,6 +251,7 @@ def main() -> int:
     p.add_argument("--residency", type=float, nargs="+",
                    default=[1.0, 0.6, 0.4, 0.2])
     p.add_argument("--check", action="store_true")
+    p.add_argument("--out-dir", default="results")
     args = p.parse_args()
     return correctness(args) if args.check else bench(args)
 

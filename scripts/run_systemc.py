@@ -31,13 +31,13 @@ def build() -> bool:
     if BIN.exists() and BIN.stat().st_mtime > SRC.stat().st_mtime:
         return True
     print("building the SystemC model ...")
-    r = subprocess.run(
-        ["g++", "-std=c++17", "-O2", "-o", str(BIN), str(SRC), "-lsystemc"],
-        capture_output=True, text=True)
+    # the Makefile honours SYSTEMC_HOME for user-local installs
+    r = subprocess.run(["make", "-C", str(SRC.parent)],
+                       capture_output=True, text=True)
     if r.returncode != 0:
         print("build failed. SystemC headers not found?\n"
               "  Debian/Ubuntu:  apt-get install libsystemc-dev\n"
-              "  from source:    https://github.com/accellera-official/systemc\n")
+              "  no root:        see docs/SETUP.md, then export SYSTEMC_HOME\n")
         print(r.stderr[:800])
         return False
     return True

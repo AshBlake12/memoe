@@ -1,0 +1,48 @@
+build/NULL/mem/dram_interface.cc:692: warn: DRAM device capacity (16384 Mbytes) does not match the address range assigned (128 Mbytes)
+build/NULL/mem/dram_interface.cc:692: warn: DRAM device capacity (16384 Mbytes) does not match the address range assigned (128 Mbytes)
+build/NULL/mem/dram_interface.cc:692: warn: DRAM device capacity (16384 Mbytes) does not match the address range assigned (128 Mbytes)
+build/NULL/mem/dram_interface.cc:692: warn: DRAM device capacity (16384 Mbytes) does not match the address range assigned (128 Mbytes)
+build/NULL/mem/dram_interface.cc:692: warn: DRAM device capacity (16384 Mbytes) does not match the address range assigned (128 Mbytes)
+build/NULL/mem/dram_interface.cc:692: warn: DRAM device capacity (16384 Mbytes) does not match the address range assigned (128 Mbytes)
+build/NULL/mem/dram_interface.cc:692: warn: DRAM device capacity (16384 Mbytes) does not match the address range assigned (128 Mbytes)
+build/NULL/mem/dram_interface.cc:692: warn: DRAM device capacity (16384 Mbytes) does not match the address range assigned (128 Mbytes)
+build/NULL/mem/physical.cc:94: warn: Not reserving swap space. May cause SIGSEGV on actual usage
+warn: No dot file generated. Please install pydot to generate the dot file and pdf.
+build/NULL/sim/simulate.cc:192: info: Entering event queue @ 0.  Starting simulation...
+build/NULL/mem/packet_queue.cc:123: panic: Packet queue system.mem_ctrls0.port-RespPacketQueue has grown beyond 128 packets
+Memory Usage: 78340 KBytes
+Program aborted at tick 1499720
+--- BEGIN LIBC BACKTRACE ---
+/home/yammanuru/local/src/gem5/build/NULL/gem5.opt[0xdd6155]
+/home/yammanuru/local/src/gem5/build/NULL/gem5.opt[0xdf98a9]
+/lib64/libpthread.so.0(+0x168c0)[0x7f78e4acb8c0]
+/lib64/libc.so.6(gsignal+0x10d)[0x7f78e4158c6b]
+/lib64/libc.so.6(abort+0x177)[0x7f78e415a305]
+/home/yammanuru/local/src/gem5/build/NULL/gem5.opt[0x9d8e04]
+/home/yammanuru/local/src/gem5/build/NULL/gem5.opt[0x999a7c]
+/home/yammanuru/local/src/gem5/build/NULL/gem5.opt[0x998774]
+/home/yammanuru/local/src/gem5/build/NULL/gem5.opt[0xdebd79]
+/home/yammanuru/local/src/gem5/build/NULL/gem5.opt[0xe12118]
+/home/yammanuru/local/src/gem5/build/NULL/gem5.opt[0xe1277b]
+/home/yammanuru/local/src/gem5/build/NULL/gem5.opt[0xd8a3ca]
+/home/yammanuru/local/src/gem5/build/NULL/gem5.opt[0x46c475]
+/usr/lib64/libpython3.6m.so.1.0(PyCFunction_Call+0x33)[0x7f78e4b921b3]
+/usr/lib64/libpython3.6m.so.1.0(_PyEval_EvalFrameDefault+0x5e6a)[0x7f78e4c09fca]
+/usr/lib64/libpython3.6m.so.1.0(+0x12a4d6)[0x7f78e4c034d6]
+/usr/lib64/libpython3.6m.so.1.0(+0x12a74f)[0x7f78e4c0374f]
+/usr/lib64/libpython3.6m.so.1.0(+0x12a955)[0x7f78e4c03955]
+/usr/lib64/libpython3.6m.so.1.0(_PyEval_EvalFrameDefault+0x3d75)[0x7f78e4c07ed5]
+/usr/lib64/libpython3.6m.so.1.0(+0x12a4d6)[0x7f78e4c034d6]
+/usr/lib64/libpython3.6m.so.1.0(PyEval_EvalCode+0x23)[0x7f78e4c03613]
+/usr/lib64/libpython3.6m.so.1.0(+0x127b6d)[0x7f78e4c00b6d]
+/usr/lib64/libpython3.6m.so.1.0(_PyCFunction_FastCallDict+0x18d)[0x7f78e4b9208d]
+/usr/lib64/libpython3.6m.so.1.0(+0x12aa72)[0x7f78e4c03a72]
+/usr/lib64/libpython3.6m.so.1.0(_PyEval_EvalFrameDefault+0x3d75)[0x7f78e4c07ed5]
+/usr/lib64/libpython3.6m.so.1.0(+0x12a4d6)[0x7f78e4c034d6]
+/usr/lib64/libpython3.6m.so.1.0(PyEval_EvalCodeEx+0x3e)[0x7f78e4c03b0e]
+/usr/lib64/libpython3.6m.so.1.0(+0x9a745)[0x7f78e4b73745]
+/usr/lib64/libpython3.6m.so.1.0(PyObject_Call+0x48)[0x7f78e4b49948]
+/home/yammanuru/local/src/gem5/build/NULL/gem5.opt[0xd93969]
+/home/yammanuru/local/src/gem5/build/NULL/gem5.opt[0x45511d]
+/lib64/libc.so.6(__libc_start_main+0xef)[0x7f78e414324d]
+--- END LIBC BACKTRACE ---

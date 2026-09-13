@@ -1,0 +1,7 @@
+build/NULL/mem/dram_interface.cc:692: warn: DRAM device capacity (16384 Mbytes) does not match the address range assigned (256 Mbytes)
+build/NULL/mem/dram_interface.cc:692: warn: DRAM device capacity (16384 Mbytes) does not match the address range assigned (256 Mbytes)
+build/NULL/mem/dram_interface.cc:692: warn: DRAM device capacity (16384 Mbytes) does not match the address range assigned (256 Mbytes)
+build/NULL/mem/dram_interface.cc:692: warn: DRAM device capacity (16384 Mbytes) does not match the address range assigned (256 Mbytes)
+build/NULL/mem/physical.cc:94: warn: Not reserving swap space. May cause SIGSEGV on actual usage
+warn: No dot file generated. Please install pydot to generate the dot file and pdf.
+build/NULL/sim/simulate.cc:192: info: Entering event queue @ 0.  Starting simulation...
