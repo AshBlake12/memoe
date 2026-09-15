@@ -2,7 +2,7 @@
 """MEMoE analysis against REAL captured routing traces.
 
 Consumes results/traces/olmoe_{prose,math,code,chat}.npz produced by
-capture_all.py, and the DRAMSim3-calibrated memory config. Everything here
+capture_traces.py, and the DRAMSim3-calibrated memory config. Everything here
 is measured: routing from OLMoE-1B-7B, bandwidth and latency from DRAMSim3.
 
 Run from the repo root:   python scripts/run_real.py
@@ -39,7 +39,7 @@ def load_traces():
     for d in DOMAINS:
         p = RES / "traces" / f"olmoe_{d}.npz"
         if not p.exists():
-            print(f"  MISSING {p} -- run capture_all.py first"); sys.exit(1)
+            print(f"  MISSING {p} -- run capture_traces.py first"); sys.exit(1)
         tr[d] = RoutingTrace.load(p)
         print(f"  {d:6s} {tr[d].n_tokens:>7,} tokens  source={tr[d].source}")
     return tr

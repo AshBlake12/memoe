@@ -189,7 +189,7 @@ def test_more_hbm_never_hurts():
 
 
 def test_bigger_batch_cuts_per_token_traffic():
-    # a model whose expert pool genuinely does not fit in one GPU
+    # a model whose expert pool does not fit in one GPU
     tr = synth_trace(8192, 94, 128, 8, seed=12, zipf_s=1.0)
     s = _sim(model="qwen3_235b", n_gpus=1)
     small = s.run(tr, 8, "balanced_static").bytes_per_token

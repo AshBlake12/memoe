@@ -1,2 +1,0 @@
-model,residency,experts_offloaded,offloaded_fraction,moe_layers,expert_pool_gb,peak_vram_gb,tokens,wall_seconds,tokens_per_second,gb_streamed,achieved_gbs,stall_seconds,stall_fraction
-DeepSeek-V2-Lite,0.0,64,1.0,26,28.79,12.84,36864,5.3492,6891.5,86.369,16.15,0.0976,0.0182

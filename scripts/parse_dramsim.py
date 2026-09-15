@@ -4,9 +4,9 @@
 DRAMSim3's own `average_bandwidth` divides bytes moved by the FULL `-c`
 cycle budget, including every idle cycle after the trace has drained. Run a
 12 MiB trace with -c 3000000 and the figure is diluted by whatever fraction
-of those cycles were spent doing nothing. The honest number comes from
-`average_interarrival`: the mean cycles between accepted requests, which is
-exactly the rate the memory system sustained while it was busy.
+of those cycles were spent doing nothing. Use `average_interarrival` instead:
+the mean cycles between accepted requests, which is the rate the memory system
+sustained while it was busy.
 
     sustained BW = 64 B / (average_interarrival * tCK)
 """

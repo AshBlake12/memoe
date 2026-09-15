@@ -6,10 +6,9 @@ gem5 is copyrighted software; use the --copyright option for details.
 
 gem5 version 22.1.0.0
 gem5 compiled Sep 14 2026 03:02:50
-gem5 started Sep 14 2026 03:12:50
-gem5 executing on bhaskar, pid 33278
+gem5 started Sep 14 2026 15:59:52
+gem5 executing on bhaskar, pid 9851
 command line: /home/yammanuru/local/src/gem5/build/NULL/gem5.opt -re --outdir=results/gem5/ch2 gem5/channel_scaling.py --gem5-configs /home/yammanuru/local/src/gem5/configs --channels 2
 
-info: Standard input is not a terminal, disabling listeners.
 channels=2 exit='system.tgen has encountered the exit state and will terminate the simulation.
 ' tick=10000001370

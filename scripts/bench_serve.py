@@ -13,13 +13,13 @@ Runs the same workload three ways and writes results/serve_bench.csv:
 The third is the disaggregated arrangement. Prefill workers and decode workers
 are separate processes on separate hardware in such a deployment, so we measure
 each phase in the configuration it would occupy and report both. We do not model
-the KV handoff between them; that cost is real and we say so rather than
-inventing a number for it.
+the KV handoff between them. That cost is real, but we would have to make up a
+number for it, so it is left out.
 
-The comparison that matters is not offload against resident overall. It is
-time-to-first-token under offload, which should be close to resident because
-prefill is a large batch, against time-per-output-token under offload, which
-should be far worse because decode is not.
+Overall offload-vs-resident throughput is less interesting here than the split
+between phases. Time-to-first-token under offload should be close to resident,
+since prefill is a large batch. Time-per-output-token under offload should be far
+worse, since decode is not.
 """
 
 from __future__ import annotations

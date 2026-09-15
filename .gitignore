@@ -9,19 +9,14 @@ venv/
 *.tgz
 *.log
 gem5-src/
-paper/*.aux
-paper/*.out
-paper/*.toc
-paper/*.fdb_latexmk
-paper/*.fls
-paper/*.synctex.gz
+.pytest_cache/
 
 # Large inputs that are re-derivable or fetched, not authored here.
 traces/*.parquet
 traces/data/
 
-# results/dashboard.html IS committed on purpose: it is the demo artifact and
-# a reader must be able to open it without a Python environment.
+# results/dashboard.html is committed on purpose so it opens without a Python
+# environment.
 
 # SystemC build artifact (rebuild with: cd systemc && make)
 systemc/memoe_tlm

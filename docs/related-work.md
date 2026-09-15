@@ -114,7 +114,7 @@ Comparing published figures directly would be misleading in three ways:
    RTX PRO 4500 and A10 differ in host-to-device bandwidth, which is the term B*
    is most sensitive to after hit rate.
 
-An honest head-to-head would run Mixtral-offloading, Fiddler and ZeRO-Inference on
+A fair head-to-head would run Mixtral-offloading, Fiddler and ZeRO-Inference on
 our hardware against the same checkpoint across the batch range, and report where
 each wins. That is the obvious next experiment and we flag it as future work
 rather than approximating it.

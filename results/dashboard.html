@@ -4059,7 +4059,7 @@ return Plotly;
 
   <div class="card">
     <h3>What we are not claiming</h3>
-    <p class="reads">The honest list, in the order it would change a conclusion.</p>
+    <p class="reads">Ordered by how much each one could change a conclusion.</p>
     <div class="twrap"><table><thead><tr><th class="a-left">Limit</th><th class="a-left">Effect</th></tr></thead><tbody><tr><td class="a-left">Contention and queueing are not modelled</td><td class="a-left">The clearest gap. Concurrent KV traffic over the same link is not simulated.</td></tr><tr><td class="a-left">Routing comes from one model, OLMoE-1B-7B</td><td class="a-left">Skew and specialisation may differ on larger MoE checkpoints.</td></tr><tr><td class="a-left">Cross-domain analysis equalises to the shortest trace</td><td class="a-left">That analysis rests on 18,239 tokens per workload.</td></tr><tr><td class="a-left">Compute counts routed expert GEMMs only, at 40% MFU</td><td class="a-left">Attention and dense layers would hide more transfer. Overheads are conservative.</td></tr><tr><td class="a-left">Four-channel bandwidth is scaled, not measured</td><td class="a-left">The headline offload figures inherit that assumption.</td></tr><tr><td class="a-left">Pooling is modelled</td><td class="a-left">No shipping CXL 3.0 switch silicon exists to measure against.</td></tr><tr><td class="a-left">We simulate placement and transfer, not kernels</td><td class="a-left">A real implementation must also solve overlap scheduling and fragmentation.</td></tr></tbody></table></div>
   </div>
 
@@ -4080,7 +4080,7 @@ return Plotly;
     <code>uv run python scripts/run_all.py</code>,
     <code>run_real.py</code>, <code>run_extras.py</code>,
     <code>sweep_dramsim.py</code>, then <code>build_dashboard.py</code>.
-    Routing capture needs a GPU and lives in <code>capture_all.py</code>.</p>
+    Routing capture needs a GPU and lives in <code>capture_traces.py</code>.</p>
 </footer>
 
 </main>

@@ -2,13 +2,13 @@
 """The feasibility frontier.
 
 CXL sustained bandwidth is ~50 GB/s against HBM's ~3350 GB/s: a 64x gap. So
-expert offload cannot be a streaming strategy. The question that decides
-whether MEMoE is useful is narrower and sharper:
+expert offload cannot be a streaming strategy. Whether MEMoE is useful comes
+down to one question:
 
     how much of the expert pool can be pushed to CXL before the stall
     exceeds a given fraction of compute?
 
-Answer that, and the capacity multiplier follows directly:
+The capacity multiplier falls out of the answer:
     achievable_multiplier = 1 / resident_fraction
 """
 from __future__ import annotations

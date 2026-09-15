@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
-# One command per demo shot on bhaskar (A10). Setup is in docs/SETUP.md.
+# One command per component on bhaskar (A10). Setup is in docs/SETUP.md.
 #
-#   scripts/demo_a10.sh <segment>
+#   scripts/run_a10.sh <component>
 #
-# Segments, in filming order:
+# Components:
 #   gpu            the card and link
 #   tests          36 tests
 #   olmoe-check    OLMoE: tiered output vs untouched reference
@@ -15,10 +15,10 @@
 #   gem5           gem5: 1/2/4/8 channel scaling
 #   qemu           instructions for the CXL guest
 #
-# Demo outputs go to /tmp/memoe-demo so the committed results/ stay untouched.
+# Outputs go to /tmp/memoe-a10 so the committed results/ stay untouched.
 set -euo pipefail
 cd "$(dirname "$0")/.."
-OUT=/tmp/memoe-demo
+OUT=/tmp/memoe-a10
 mkdir -p "$OUT"
 
 case "${1:-}" in
@@ -70,6 +70,6 @@ Terminal 2:  ssh -p 2222 ubuntu@localhost      (password memoe), then:
 EOF
     ;;
   *)
-    sed -n 2,20p "$0"; exit 1
+    sed -n 2,18p "$0"; exit 1
     ;;
 esac

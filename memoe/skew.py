@@ -56,9 +56,8 @@ def skew_stats(counts):
 def coverage_curve(counts, points=100):
     """Fraction of token-routings served vs fraction of experts kept resident.
 
-    This is the single most important curve in the project: it is the
-    upper bound on hit rate achievable by a static popularity-based
-    tiering policy at a given HBM capacity.
+    It is the upper bound on the hit rate a static popularity-based tiering
+    policy can reach at a given HBM capacity.
     """
     counts = np.asarray(counts, dtype=float)
     n_layers, n_experts = counts.shape

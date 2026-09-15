@@ -3,8 +3,8 @@
 Everything here was built and run on **bhaskar** (NVIDIA A10 23 GB, PCIe 4.0,
 48 cores, 125 GB RAM, openSUSE, gcc 7.5, Python 3.6 system) **without root**.
 Each section gives the build, the command that proves it works, and the output
-you should see. `scripts/demo_a10.sh` wraps the verification commands one per
-demo shot.
+you should see. `scripts/run_a10.sh` wraps the verification commands, one per
+component.
 
 Python environments are managed with `uv` throughout. Nothing is installed
 system-wide; user-local builds live under `~/local`.
@@ -50,7 +50,7 @@ Run:
 
 ```bash
 bash scripts/run_deepseek.sh --check
-bash scripts/run_deepseek.sh --batch 16384 --residency 0.0 --reps 1 --out /tmp/memoe-demo/deepseek.csv
+bash scripts/run_deepseek.sh --batch 16384 --residency 0.0 --reps 1 --out /tmp/memoe-a10/deepseek.csv
 ```
 
 `--check` compares a 25%-resident run against a 0%-resident run on identical
@@ -66,7 +66,7 @@ about 3,300 tok/s. At batch 16,384 the committed figure is 7,241 tok/s in
 
 ```bash
 bash scripts/run_runtime.sh --check
-bash scripts/run_runtime.sh --batch 16384 --residency 1.0 0.0 --depth 1 --out-dir /tmp/memoe-demo/olmoe
+bash scripts/run_runtime.sh --batch 16384 --residency 1.0 0.0 --depth 1 --out-dir /tmp/memoe-a10/olmoe
 ```
 
 Expected on the A10 at batch 16,384: fully resident 13,391 tok/s in 17.7 GB,
@@ -86,7 +86,7 @@ less GPU memory, with stall under 0.1%.
 - `PASS` when invariance is exact and top-5 containment is above 99%.
 
 The committed `results/runtime_bench*.csv` are the Blackwell (PCIe 5.0)
-numbers used in the paper. Always pass `--out-dir` on bhaskar so an A10 run
+numbers used in the report. Always pass `--out-dir` on bhaskar so an A10 run
 does not overwrite them.
 
 ## 3. DRAMSim3: the tier itself
@@ -101,7 +101,7 @@ cd ~/DRAMsim3 && mkdir -p build && cd build && cmake .. && make -j16
 Verify both tiers against the committed calibration:
 
 ```bash
-bash scripts/demo_a10.sh dramsim
+bash scripts/run_a10.sh dramsim
 ```
 
 Expected: CXL tier (DDR4-3200, 1 channel) **16.9 GB/s, 179.4 ns**; HBM tier
@@ -188,11 +188,11 @@ channels          GB/s    ratio
 8        bus saturated: panic: Packet queue system.mem_ctrls0.port-RespPacketQueue has grown beyond 128 packets
 ```
 
-One channel reproduces the paper's 13.86 GB/s exactly. Four channels give
-3.978x against the paper's 3.999x: linear to within 0.6%, which is the claim the
-four-channel figure rests on. At eight channels the shared bus cannot drain
+One channel reproduces the report's 13.86 GB/s exactly. Four channels give
+3.978x against the report's 3.999x, linear to within 0.6%, and the four-channel
+figure depends on exactly that. At eight channels the shared bus cannot drain
 responses and gem5 v22.1 panics on its 128-packet sanity limit instead of
-reporting a throughput, so this config does not reproduce the paper's
+reporting a throughput, so this config does not reproduce the report's
 eight-channel row.
 
 Two gem5 constraints shaped the config: a traffic generator block may not exceed

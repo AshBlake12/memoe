@@ -26,9 +26,6 @@ python scripts/run_real.py
 echo; echo "== offloadable frontier =="
 python scripts/frontier.py
 
-echo; echo "== LaTeX tables =="
-python scripts/make_paper_tables.py
-
 echo; echo "== dashboard =="
 python scripts/build_dashboard.py
 

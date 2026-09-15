@@ -974,7 +974,7 @@ document.querySelectorAll('section').forEach(s => obs.observe(s));
 
   <div class="card">
     <h3>What we are not claiming</h3>
-    <p class="reads">The honest list, in the order it would change a conclusion.</p>
+    <p class="reads">Ordered by how much each one could change a conclusion.</p>
     {table(["Limit", "Effect"],
            [("Contention and queueing are not modelled",
              "The clearest gap. Concurrent KV traffic over the same link is not simulated."),
@@ -1010,7 +1010,7 @@ document.querySelectorAll('section').forEach(s => obs.observe(s));
     <code>uv run python scripts/run_all.py</code>,
     <code>run_real.py</code>, <code>run_extras.py</code>,
     <code>sweep_dramsim.py</code>, then <code>build_dashboard.py</code>.
-    Routing capture needs a GPU and lives in <code>capture_all.py</code>.</p>
+    Routing capture needs a GPU and lives in <code>capture_traces.py</code>.</p>
 </footer>
 
 </main>

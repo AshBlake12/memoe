@@ -5,8 +5,8 @@ Figures for the serving-loop section.
     uv run python scripts/plot_serve.py
 
 Reads results/serve_r{4,8,16,32}.csv and results/serve_bench.csv and writes
-two PNGs into results/figures_serve/. Both are referenced by paper/memoe.tex
-as s1_decode_tpot.png and s2_phase_cost.png. Every number is measured.
+two PNGs into results/figures_serve/: s1_decode_tpot.png and s2_phase_cost.png.
+Every number is measured.
 """
 
 from __future__ import annotations

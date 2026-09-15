@@ -18,8 +18,8 @@ model's own forward untouched and does two things:
   2. Registers a pre-hook and a post-hook on each MoE block, which wait for the
      layer's weights to land and then issue the transfer for the layer d ahead.
 
-The model computes exactly as it always did. It simply finds its weights in a
-buffer that was filled a moment earlier.
+The model's maths is unchanged. Its weights are just read from a buffer that
+was filled a moment earlier.
 
 Shared experts, dense layers and the router stay resident: shared experts fire
 on every token, so offloading them would be pointless, and the dense first

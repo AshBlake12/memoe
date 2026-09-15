@@ -45,7 +45,7 @@ s = p.read_text(encoding="utf-8")
 before = s
 
 # Guard the module-scope import instead of deleting it, so the code path that
-# genuinely wants flash-attention still works where it is available.
+# actually needs flash-attention still works where it is installed.
 s = re.sub(
     r"^(\s*)(from flash_attn.*|import flash_attn.*)$",
     r"\1try:\n\1    \2\n\1except ImportError:  # patched: not required for the paths we take\n\1    pass",

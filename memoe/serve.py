@@ -2,13 +2,12 @@
 MEMoE-Serve: a serving loop that measures what expert offload costs in a real
 request/response setting, rather than in a single batched forward pass.
 
-Our batch sweeps show that expert offload is excellent at prefill batch sizes
-and poor at decode batch sizes. That is a statement about arithmetic intensity,
-and it has a direct architectural consequence: offload belongs on prefill
-workers, not decode workers. Production serving is already moving toward that
-split (chunked prefill, prefill/decode disaggregation), so the question is not
-whether offload can be bolted onto a monolithic engine, but what it does to
-time-to-first-token and time-per-output-token when placed correctly.
+Our batch sweeps show expert offload doing well at prefill batch sizes and badly
+at decode batch sizes. That comes down to arithmetic intensity, and it means
+offload belongs on prefill workers. Production serving is already splitting the
+two phases (chunked prefill, prefill/decode disaggregation), so what we want to
+know is what offload does to time-to-first-token and time-per-output-token when
+it only runs where it fits.
 
 This module measures three configurations on the same workload:
 
@@ -19,9 +18,9 @@ This module measures three configurations on the same workload:
 The third is the disaggregated arrangement, measured by running each phase in
 the configuration it would occupy on a real deployment and composing the
 results. We do not simulate a network hop between workers; the numbers are
-per-phase measurements, and we say so.
+per-phase measurements.
 
-What this is not: a production engine. There is no PagedAttention, no
+This is not a production engine. There is no PagedAttention, no
 preemption, no prefix caching, and the KV cache is contiguous per sequence
 rather than paged. Continuous batching is implemented: sequences join and leave
 the running batch between decode steps, and the cache is gathered accordingly.

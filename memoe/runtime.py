@@ -133,7 +133,7 @@ class ExpertTier:
     computed. An event on the compute stream makes that reuse safe.
 
     All waiting is GPU-side with stream events, never host synchronisation, so
-    the copy genuinely overlaps compute. Stall time is measured by recording a
+    the copy really does overlap compute. Stall time is measured by recording a
     CUDA event either side of the wait and reading elapsed time after the pass.
     """
 
