@@ -258,8 +258,6 @@ and the structure is what the analytical model describes.
 
 ## Constraints enforced by tests
 
-A reviewer will check these first, so they are assertions in the test suite.
-
 - CXL bandwidth is always the measured sustained 18-52 GB/s range, never the
   theoretical link rate. `test_cxl_bandwidth_within_measured_range`
 - CXL 3.0 pooling is modelled. Any config using it is flagged
