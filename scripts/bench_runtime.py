@@ -2,6 +2,11 @@
 """
 Benchmark MEMoE-RT against a fully resident baseline.
 
+Works on any Hugging Face MoE checkpoint that keeps its experts either as fused
+tensors (OLMoE, Qwen3-MoE and Mixtral in transformers 5.x) or as a ModuleList
+(older transformers and most trust_remote_code models). The right path is picked
+automatically; pass --ckpt. docs/PORTING.md walks through a new model.
+
     uv run python scripts/bench_runtime.py --check
     uv run python scripts/bench_runtime.py --batch 4096 --residency 1.0 0.6 0.4 0.2
     uv run python scripts/bench_runtime.py --trials 3   # for reportable numbers
@@ -33,7 +38,7 @@ from pathlib import Path
 
 import torch
 
-from memoe.runtime import discover_moe_blocks, tier_model
+from memoe.runtime_ml import tier_model_auto
 
 CKPT = "allenai/OLMoE-1B-7B-0924-Instruct"
 
@@ -75,38 +80,60 @@ def timed_forward(model, ids, reps: int, tier=None):
 
 @torch.no_grad()
 def correctness(args) -> int:
+    """Two checks on identical random input.
+
+    By default: tiered output against the unmodified model, then 25% against
+    100% residency, which must match exactly. For a model too large to hold
+    resident, --check-residency LOW HIGH with HIGH below 1.0 skips the
+    unmodified model and compares two tiered runs instead.
+    """
     device = torch.device(args.device)
+    lo, hi = args.check_residency
     print("=== correctness ===")
-    ref_model = load(args.ckpt).to(device)
-    ids, _ = make_input(ref_model, 512, 128, device)
-    ref = ref_model(ids).logits.float().cpu()
-    del ref_model
-    gc.collect(); torch.cuda.empty_cache()
+    state = {"ids": None}
+
+    def inputs(m):
+        if state["ids"] is None:
+            state["ids"], _ = make_input(m, 512, 128, device)
+        return state["ids"]
 
     def tiered(residency):
         m = load(args.ckpt)
-        tier = tier_model(m, residency=residency, depth=args.depth, device=device)
-        m.to(device)
+        tier, moved = tier_model_auto(m, residency=residency, depth=args.depth,
+                                      device=device)
+        if not moved:
+            m.to(device)
         tier.warmup()
-        out = m(ids).logits.float().cpu()
+        out = m(inputs(m)).logits.float().cpu()
         del m, tier
         gc.collect(); torch.cuda.empty_cache()
         return out
 
-    got = tiered(0.25)
-    diff = (ref - got).abs()
-    rel = (diff.max() / ref.abs().max()).item()
-    print(f"vs reference:  max abs diff {diff.max().item():.5f}   relative {rel:.2e}")
-    agree = (ref.argmax(-1) == got.argmax(-1)).float().mean().item()
-    top5 = (torch.topk(ref, 5, -1).indices == got.argmax(-1, keepdim=True)).any(-1)
-    top5 = top5.float().mean().item()
-    print(f"vs reference:  argmax agreement {agree:.4%}   in reference top-5 {top5:.4%}")
+    ok = True
+    if hi >= 0.999:
+        ref_model = load(args.ckpt).to(device)
+        ref = ref_model(inputs(ref_model)).logits.float().cpu()
+        del ref_model
+        gc.collect(); torch.cuda.empty_cache()
+
+        got = tiered(lo)
+        diff = (ref - got).abs()
+        rel = (diff.max() / ref.abs().max()).item()
+        print(f"vs reference:  max abs diff {diff.max().item():.5f}   relative {rel:.2e}")
+        agree = (ref.argmax(-1) == got.argmax(-1)).float().mean().item()
+        top5 = (torch.topk(ref, 5, -1).indices == got.argmax(-1, keepdim=True)).any(-1)
+        top5 = top5.float().mean().item()
+        print(f"vs reference:  argmax agreement {agree:.4%}   in reference top-5 {top5:.4%}")
+        ok = top5 > 0.99
+    else:
+        print(f"unmodified model skipped; comparing two tiered runs")
+        got = tiered(lo)
 
     # the reference gap is bf16 rounding in our MoE forward, and it is identical
     # at every residency; what offload itself must do is change nothing at all
-    inv = (tiered(1.0) - got).abs().max().item()
-    print(f"offload invariance: 25% vs 100% resident, max abs diff {inv:.5f}")
-    ok = inv == 0.0 and top5 > 0.99
+    inv = (tiered(hi) - got).abs().max().item()
+    print(f"offload invariance: {lo:.0%} vs {hi:.0%} resident, max abs diff {inv:.5f}")
+    ok = ok and inv == 0.0
     print("PASS" if ok else "FAIL")
     return 0 if ok else 1
 
@@ -121,10 +148,12 @@ def bench(args) -> int:
         for r in args.residency:
             print(f"\n=== residency {r:.2f} ===")
             m = load(args.ckpt)
-            specs = discover_moe_blocks(m)
-            n_exp, layers = specs[0].n_experts, len(specs)
-            tier = tier_model(m, residency=r, depth=args.depth, device=device)
-            m.to(device)
+            tier, moved = tier_model_auto(m, residency=r, depth=args.depth,
+                                          device=device)
+            if not moved:
+                m.to(device)
+            n_exp = tier.stats.resident_experts + tier.stats.offloaded_experts
+            layers = tier.stats.layers
             ids, tokens = make_input(m, args.batch, args.seq, device)
 
             secs = timed_forward(m, ids, args.reps, tier)
@@ -237,7 +266,8 @@ def _report_monotonicity(summary, trials):
 
 def main() -> int:
     p = argparse.ArgumentParser()
-    p.add_argument("--ckpt", default=CKPT)
+    p.add_argument("--ckpt", default=CKPT,
+                   help="Hugging Face id or local path of any MoE checkpoint")
     p.add_argument("--device", default="cuda")
     p.add_argument("--batch", type=int, default=4096, help="tokens per forward")
     p.add_argument("--seq", type=int, default=512)
@@ -251,6 +281,10 @@ def main() -> int:
     p.add_argument("--residency", type=float, nargs="+",
                    default=[1.0, 0.6, 0.4, 0.2])
     p.add_argument("--check", action="store_true")
+    p.add_argument("--check-residency", type=float, nargs=2, default=[0.25, 1.0],
+                   metavar=("LOW", "HIGH"),
+                   help="residencies --check compares; HIGH below 1.0 skips the "
+                        "unmodified model, for checkpoints too large to hold resident")
     p.add_argument("--out-dir", default="results")
     args = p.parse_args()
     return correctness(args) if args.check else bench(args)

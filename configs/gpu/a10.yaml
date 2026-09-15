@@ -1,0 +1,9 @@
+name: A10
+hbm_gb: 23.0
+link_gbs: 25.2
+eff_flops_measured: 14600000000000
+note: "NVIDIA A10, 23 GB, PCIe 4.0 x16. Both figures are measured on the card.
+  link_gbs is the plateau from scripts/measure_link.py (25.23 GB/s from 4 MB
+  transfers up). eff_flops_measured is calibrated with scripts/plan_offload.py
+  on the fully resident OLMoE-1B-7B run at batch 4096
+  (results/runtime_a10_olmoe_resident.csv, 9,058 tokens per second)."

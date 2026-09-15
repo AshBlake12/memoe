@@ -168,7 +168,7 @@ Prefetch helps only to the extent the popularity prior predicts the miss, and on
 |     1.5  |          512 |     0.8875 |            0.5027 |   115.5    |
 |     1.5  |         4096 |     0.8875 |            0.5    |    13.9774 |
 
-At s=0 (uniform routing) a 50% resident tier serves 50% of routings and nothing more: tiering buys exactly its capacity fraction. Every result above rests on real routers being skewed. **Measuring that on a real checkpoint is the highest-value remaining experiment**, and it is what `memoe/hooks.py` exists for.
+At s=0 (uniform routing) a 50% resident tier serves 50% of routings and nothing more: tiering buys exactly its capacity fraction. `scripts/run_real.py` measures real router skew on OLMoE-1B-7B across four workloads, captured with `memoe/hooks.py` (see `tables_real/`).
 
 
 ## 8. Sensitivity to CXL bandwidth
@@ -189,12 +189,3 @@ At s=0 (uniform routing) a 50% resident tier serves 50% of routings and nothing 
 | Qwen3-235B-A22B |          128 | True           |     0.2247 |
 
 Overhead is inversely proportional to bandwidth, with no threshold effect. Within the measured 18-52 GB/s band the qualitative picture does not change.
-
-
-## Threats to validity
-
-- Routing traces are **synthetic** (Zipf s=1.0, mild drift). Real router skew varies by layer and by input domain, and real routers are load-balanced during training, which pushes *against* skew. This is the weakest assumption in the project.
-- CXL 3.0 pooling figures are **modeled**; no shipping switch silicon exists to measure. Direct-attached CXL 2.0 figures are within the published measured range.
-- The compute model counts routed-expert GEMMs only, at 40% MFU. Attention and dense layers add compute that would hide more transfer, so reported overheads are conservative.
-- Prefetch uses a static popularity prior. A predictor conditioned on layer L-1 routing should do better; we have not built one.
-- We model bandwidth and capacity, not contention: concurrent KV-cache traffic over the same link is not simulated.

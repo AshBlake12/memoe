@@ -1,0 +1,2 @@
+residency,offloaded_fraction,experts_offloaded,layers,batch_tokens,peak_vram_gb,tokens,wall_seconds,tokens_per_second,gb_streamed,achieved_gbs,stall_seconds,stall_fraction,trials,tps_spread_pct
+1.0,0.0,0,16,4096,14.81,12288,1.3566,9058.3,0.0,0.0,0.0,0.0,1,

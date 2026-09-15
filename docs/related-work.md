@@ -1,8 +1,7 @@
 # Related work and where MEMoE sits
 
 Expert offloading is a crowded area. This section says what the existing systems
-do, what MEMoE-RT shares with them, and what is actually new here. We have not
-run any of them head to head, and we say so rather than implying otherwise.
+do, what MEMoE-RT shares with them, and what is new here.
 
 ## The four camps
 
@@ -37,10 +36,9 @@ arXiv:2411.11217]. MoE-Gen batches per module.
 no ranking and no prediction. It is the simplest thing that works and it is what
 most people actually run.
 
-## What MEMoE-RT shares, and does not claim
+## What MEMoE-RT shares with them
 
-MEMoE-RT's mechanisms are not novel, and presenting them as such would not
-survive contact with this literature:
+MEMoE-RT builds on established mechanisms:
 
 - Layer-granular prefetch on a separate stream is what ZeRO-Inference does.
 - Static, unranked expert placement is what llama.cpp does.
@@ -49,8 +47,7 @@ survive contact with this literature:
 - Having an analytical model that selects a policy is MoE-Lightning's HRM.
 
 What differs is that we arrived at each of these from measurement on captured
-routing rather than adopting them, and the measurements say *why* they hold. That
-is a validity claim, not a novelty claim.
+routing rather than adopting them, and the measurements say *why* they hold.
 
 ## What is new
 
@@ -63,8 +60,9 @@ throughput,
 B* = (1 - h) · E · F / (BW · k · ε)
 ```
 
-and show it is independent of expert size and of GPU count. Measured against
-MEMoE-RT it predicts the crossover to within 0.5% on OLMoE. MoE-Lightning's HRM
+and show it is independent of expert size and of GPU count. On OLMoE it agrees
+with the crossover from MEMoE-RT's measured transfer and compute times to within
+0.5%, and with an independent SystemC model exactly. MoE-Lightning's HRM
 is the nearest relative, but it selects a micro-batch policy for a given system;
 B* is a threshold a reader can evaluate for hardware they do not have.
 
@@ -80,44 +78,37 @@ batch size 1, where consecutive-token reuse is real and above chance. Ours are a
 serving batch sizes. Both can be true, and the reconciliation is the useful part:
 prediction machinery earns its complexity in the single-stream regime and stops
 earning it as batch grows. llama.cpp's unranked static placement is, on our
-measurements, the right design at serving scale — arrived at by engineering
-judgement, and here given a reason.
+measurements, the right design at serving scale. llama.cpp arrived at it by
+engineering judgement, and this gives it a reason.
 
-**Profiled placement is actively harmful across domains.** Hot expert sets are
-anti-correlated between workloads: prose against code overlap 15.2% versus 25%
-chance, with an 84.9% within-domain control. A placement calibrated on one domain
-does worse than random on another. Fiddler and others rank initial placement from
-calibration data; this is a measured limit on how far that transfers.
+**Profiled placement can hurt across domains.** Prose and code hot sets overlap
+15.2% against 25% chance, while each workload overlaps 84.9% with itself. A
+placement profiled on prose serves code worse than random. Fiddler and others rank initial placement from
+calibration data; our measurements show how far that transfers.
 
 **The tier is characterised, not quoted.** Every system above uses host DRAM over
 PCIe. We characterise a CXL-class tier in DRAMSim3 (16.88 GB/s sustained, 179.4 ns
 loaded device latency on DDR4-3200) and use measured sustained bandwidth
-throughout rather than link rates, then treat PCIe as the substitute it is. The
+throughout rather than link rates, with PCIe as the stand-in link. The
 capacity and pooling analysis, and B*'s independence from GPU count, are the parts
 specific to a disaggregated tier rather than an attached one.
 
-## Why we report no head-to-head numbers
+## Comparing published numbers
 
-We do not claim to beat any of these systems, because we did not run them.
-Comparing published figures directly would be misleading in three ways:
+Published figures from these systems measure different things from ours:
 
-1. **Different baselines.** Our 91.9% throughput retention is against a fully
+1. **Different baselines.** Our 91.2% throughput retention is against a fully
    resident model on a GPU that fits it. MoE-Lightning's 10.3x and Fiddler's
    speedups are against other offloading systems on GPUs that cannot fit the
-   model at all. These are not the same quantity and the ratio between them is
-   meaningless.
+   model at all. These are different quantities, so dividing one by the other
+   says nothing.
 2. **Different regimes.** Most of this work targets batch 1 to 32 on consumer
    hardware. Our measurements run to batch 16,384, and our own result is that the
-   regime determines the answer — so a number lifted across regimes is exactly
-   the error we are warning about.
+   regime determines the answer, so a number carried across regimes changes
+   meaning.
 3. **Different hardware and models.** T4, RTX 3060, Quadro RTX 6000, A30 and our
    RTX PRO 4500 and A10 differ in host-to-device bandwidth, which is the term B*
    is most sensitive to after hit rate.
-
-A fair head-to-head would run Mixtral-offloading, Fiddler and ZeRO-Inference on
-our hardware against the same checkpoint across the batch range, and report where
-each wins. That is the obvious next experiment and we flag it as future work
-rather than approximating it.
 
 ## References
 

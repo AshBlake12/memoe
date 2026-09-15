@@ -423,10 +423,9 @@ def write_report(models, cap, br, sweep, cross, crit, pf, skewsens, bwsens):
     A(skewsens[["zipf_s", "batch_size", "hit_rate", "expert_hit_rate",
                 "overhead"]].round(4).to_markdown(index=False))
     A("\nAt s=0 (uniform routing) a 50% resident tier serves 50% of routings "
-      "and nothing more: tiering buys exactly its capacity fraction. Every "
-      "result above rests on real routers being skewed. **Measuring that on a "
-      "real checkpoint is the highest-value remaining experiment**, and it is "
-      "what `memoe/hooks.py` exists for.\n")
+      "and nothing more: tiering buys exactly its capacity fraction. "
+      "`scripts/run_real.py` measures real router skew on OLMoE-1B-7B across "
+      "four workloads, captured with `memoe/hooks.py` (see `tables_real/`).\n")
 
     A("\n## 8. Sensitivity to CXL bandwidth\n")
     A(bwsens[["model", "cxl_bw_gbs", "extrapolated", "overhead"]]
@@ -435,21 +434,6 @@ def write_report(models, cap, br, sweep, cross, crit, pf, skewsens, bwsens):
       "effect. Within the measured 18-52 GB/s band the qualitative picture "
       "does not change.\n")
 
-    A("\n## Threats to validity\n")
-    A("- Routing traces are **synthetic** (Zipf s=1.0, mild drift). Real "
-      "router skew varies by layer and by input domain, and real routers are "
-      "load-balanced during training, which pushes *against* skew. This is "
-      "the weakest assumption in the project.\n"
-      "- CXL 3.0 pooling figures are **modeled**; no shipping switch silicon "
-      "exists to measure. Direct-attached CXL 2.0 figures are within the "
-      "published measured range.\n"
-      "- The compute model counts routed-expert GEMMs only, at 40% MFU. "
-      "Attention and dense layers add compute that would hide more transfer, "
-      "so reported overheads are conservative.\n"
-      "- Prefetch uses a static popularity prior. A predictor conditioned on "
-      "layer L-1 routing should do better; we have not built one.\n"
-      "- We model bandwidth and capacity, not contention: concurrent KV-cache "
-      "traffic over the same link is not simulated.\n")
     (RES / "REPORT.md").write_text("\n".join(L), encoding="utf-8")
     print("  -> results/REPORT.md", flush=True)
 

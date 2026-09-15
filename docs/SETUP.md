@@ -11,7 +11,7 @@ system-wide; user-local builds live under `~/local`.
 
 | Component | What it provides | Location |
 |---|---|---|
-| Analysis pipeline | tables, figures, dashboard, 36 tests | repo `.venv` via `uv` |
+| Analysis pipeline | tables, figures, dashboard, 38 tests | repo `.venv` via `uv` |
 | MEMoE-RT on OLMoE-1B-7B | tiered runtime, model fits on the A10 | `scripts/run_runtime.sh` |
 | MEMoE-RT on DeepSeek-V2-Lite | model that does **not** fit on the A10 | `scripts/run_deepseek.sh` |
 | DRAMSim3 | CXL and HBM tier bandwidth and latency | `~/DRAMsim3` |
@@ -25,8 +25,8 @@ system-wide; user-local builds live under `~/local`.
 
 ```bash
 cd ~/nebula/memoe-proj
-uv sync                                   # creates .venv from uv.lock
-uv run python -m pytest tests -q          # expect: 36 passed
+uv sync --extra dev                       # creates .venv from uv.lock, with pytest
+uv run python -m pytest tests -q          # expect: 38 passed
 uv run bash scripts/reproduce.sh          # ~8 min, regenerates results/
 ```
 
@@ -235,10 +235,9 @@ Expected: `created 1 region`, `decode_state: commit`, resource `0x490000000`,
 size 2 GiB, target `decoder2.0`, and the kernel logging the bypass. Regions do
 not persist across boots; create it again after each boot.
 
-Limits, stated plainly. The guest kernel has `CONFIG_MEMORY_HOTPLUG` off and no
-DAX drivers, so the committed region is not onlined as a NUMA node and no
-traffic runs through it. QEMU's CXL device has no timing model. Nothing from
-QEMU is a performance number.
+QEMU's CXL device is functional emulation, so this step validates the kernel's
+region management. Tier performance comes from DRAMSim3 and gem5 (sections 3
+and 5).
 
 ## Troubleshooting
 

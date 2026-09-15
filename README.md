@@ -24,12 +24,13 @@ expert size (a bigger expert costs more to fetch and does proportionally more
 work) and does not depend on GPU count (compute and per-node bandwidth scale
 together). That leaves the hit rate, which enters linearly.
 
-Checked against the runtime, the closed form predicts the crossover to within
-0.5% on OLMoE.
+On OLMoE the closed form gives a crossover of 4,626 tokens. The runtime's measured
+transfer and compute times put it at 4,645, and an independent SystemC model puts
+it at 4,626.
 
-So offload is a prefill technique. At prefill batch sizes the entire expert pool
-can sit off-GPU for about 7% of throughput. At decode batch sizes the same
-configuration costs most of it.
+So offload is a prefill technique. With every expert off-GPU at a batch of 16,384
+tokens, OLMoE keeps 91.2% of resident throughput in 2.44x less GPU memory. At
+decode batch sizes the same configuration costs most of it.
 
 ## Three findings that changed the design
 
@@ -39,9 +40,9 @@ configuration costs most of it.
 2. **Popularity buys nothing at serving scale.** Fetch hit rate equals resident
    fraction exactly, whatever the routing distribution. LRU, LFU and static
    placement come out the same, so MEMoE-RT has no ranking in it at all.
-3. **Hot expert sets are anti-correlated across workloads.** Prose vs. code
-   overlap is 15.2% against 25% chance, with an 84.9% within-domain control. A
-   placement profiled on one domain does worse than random on another.
+3. **The wrong profile is worse than none.** Prose and code hot sets overlap
+   15.2%, below the 25% expected by chance, while each workload overlaps 84.9%
+   with itself. A placement profiled on prose serves code worse than random.
 
 Put together, these pushed us away from popularity-based tiering and toward
 bandwidth-window prefetch scheduling plus a capacity decision.
@@ -81,12 +82,13 @@ memoe/
   serve.py      serving loop with real KV cache and continuous batching
   config.py     YAML loading (utf-8-sig; see "Windows" below)
 
-configs/        model / memory / gpu YAML
+configs/        model / memory / gpu YAML (add a file here to plan a new model or GPU)
 scripts/        see below
 gem5/           channel-scaling config and sweep
 systemc/        TLM-2.0 model of the tiered expert path
-tests/          36 tests
-docs/           SETUP.md (building everything without root), related work
+tests/          38 tests
+docs/           SETUP.md (building everything without root), PORTING.md (new models and GPUs), related work
+paper/          LaTeX source of the report: main.tex, diagrams/ (pdflatex main.tex)
 results/        tables*/ figures*/ traces/ dramsim/ gem5/ qemu/ REPORT.md dashboard.html
 ```
 
@@ -102,7 +104,9 @@ results/        tables*/ figures*/ traces/ dramsim/ gem5/ qemu/ REPORT.md dashbo
 | `build_dashboard.py` | writes `results/dashboard.html` |
 | `capture_traces.py` | hook a live checkpoint, capture routing across 4 domains |
 | `hotset_overlap.py` | cross-domain hot-set overlap |
-| `bench_runtime.py` | **GPU** MEMoE-RT on OLMoE: correctness, residency, batch, depth |
+| `plan_offload.py` | plan a model on a GPU: what fits, crossover batch B*, the command to run |
+| `measure_link.py` | **GPU** host-to-device bandwidth, the `link_gbs` a GPU config needs |
+| `bench_runtime.py` | **GPU** MEMoE-RT on any MoE checkpoint (OLMoE by default): correctness, residency, batch, depth |
 | `sweep_residency.py` | **GPU** residency sweep, one process per point (avoids pinned-memory OOM) |
 | `bench_serve.py` | **GPU** serving loop, KV cache, continuous batching |
 | `bench_deepseek.py` | **GPU** MEMoE-RT on DeepSeek-V2-Lite |
@@ -115,13 +119,71 @@ results/        tables*/ figures*/ traces/ dramsim/ gem5/ qemu/ REPORT.md dashbo
 | `gem5/run_channels.sh` | gem5 1/2/4/8-channel sweep, config in `gem5/channel_scaling.py` |
 
 `docs/SETUP.md` covers building gem5, SystemC, DRAMSim3 and QEMU without root and
-running every component on one A10 machine.
+running every component on one A10 machine. `docs/PORTING.md` shows how to run
+MEMoE-RT on a different MoE model or a different GPU.
+
+## Setup with uv
+
+The project is managed with [uv](https://docs.astral.sh/uv/). Dependencies are
+declared in `pyproject.toml` and pinned in `uv.lock`, so everyone gets the same
+versions.
+
+### 1. Install uv
+
+```bash
+curl -LsSf https://astral.sh/uv/install.sh | sh     # Linux / macOS
+# Windows (PowerShell): irm https://astral.sh/uv/install.ps1 | iex
+uv --version
+```
+
+No root needed. uv installs into `~/.local/bin` and downloads a Python for you if
+the machine doesn't have 3.10 or newer.
+
+### 2. Create the environment
+
+```bash
+git clone https://github.com/AshBlake12/memoe.git && cd memoe
+uv sync --extra dev          # creates .venv from uv.lock, includes pytest
+```
+
+Pass `--extra dev`. A plain `uv sync` installs only the core packages and will
+remove pytest if it's already in the environment.
+
+### 3. Run things
+
+Prefix commands with `uv run` and they execute inside `.venv`; you never need to
+activate it.
+
+```bash
+uv run python -m pytest tests -q          # 38 passed
+uv run bash scripts/reproduce.sh          # ~8 min, CPU only, no downloads
+uv run python scripts/build_dashboard.py  # just the dashboard
+```
+
+### What gets installed
+
+| Group | Packages | Used for |
+|---|---|---|
+| core (`uv sync`) | numpy, pandas, pyyaml, matplotlib, tabulate, plotly | analysis, simulator, tables, figures, dashboard |
+| `--extra dev` | pytest | the test suite |
+| `--extra runtime` | torch, transformers, accelerate, datasets | GPU runtime and trace capture, if you manage your own CUDA setup |
+
+The GPU benchmarks don't use the project environment. Each launcher builds a
+throwaway Python 3.11 environment with `uv run --no-project` and the exact CUDA
+12.1 wheels its model needs, so nothing has to be installed by hand:
+
+| Launcher | Python | Packages |
+|---|---|---|
+| `scripts/run_runtime.sh` (OLMoE) and `scripts/run_serve.sh` | 3.11 | torch>=2.5.0 (cu121), transformers>=5.0.0, accelerate, numpy, pandas, pyyaml |
+| `scripts/run_deepseek.sh` (DeepSeek-V2-Lite) | 3.11 | torch==2.4.1 (cu121), transformers==4.44.2, accelerate, numpy, pandas, pyyaml |
+
+DRAMSim3, SystemC, gem5 and QEMU are native builds, covered in `docs/SETUP.md`.
+If you'd rather use pip, `requirements.txt` lists the core and test packages.
 
 ## Reproducing
 
 ```bash
-pip install -r requirements.txt
-scripts/reproduce.sh          # ~8 min, CPU only, no downloads
+uv run bash scripts/reproduce.sh
 ```
 
 Every CSV and `results/REPORT.md` in this repo regenerates byte-identical from a
@@ -131,9 +193,8 @@ network fetch.
 The runtime benchmarks are separate because they need hardware:
 
 ```bash
-pip install -e ".[runtime]"
-python scripts/bench_runtime.py --check       # correctness first
-python scripts/bench_runtime.py --trials 3    # then timing
+bash scripts/run_runtime.sh --check       # correctness first
+bash scripts/run_runtime.sh --trials 3    # then timing
 ```
 
 `--check` compares tiered output against the unmodified reference on identical
@@ -183,20 +244,17 @@ anywhere in the build), and the region commits: 2 GB at `0x490000000`, interleav
 ways 1, target `decoder2.0`, with the bypass logged in dmesg. Capture in
 `results/qemu/cxl_committed.txt`.
 
-Two limits. The region was committed but never mapped or driven with traffic, so
-the claim covers region management, not a working memory tier. And QEMU's CXL
-support is functional emulation with no timing model, so nothing from it counts
-as performance evidence. Every quantitative CXL number here comes from DRAMSim3
-and the analytical model.
+QEMU validates the software path. Every quantitative CXL number here comes from
+DRAMSim3, gem5 and the analytical model.
 
 ## Substituting PCIe for CXL
 
-We don't have CXL silicon. Host DRAM over PCIe is the usual stand-in: a large,
-slow, byte-addressable tier behind a link. At PCIe 5.0 x16 the measured plateau of
+Host DRAM over PCIe is the standard stand-in for a CXL tier: a large, slow,
+byte-addressable tier behind a link. At PCIe 5.0 x16 the measured plateau of
 40.8 GB/s sits between our single-channel CXL figure of 16.88 GB/s and the scaled
-four-channel 67.5 GB/s. It isn't CXL (latency differs, and there is no cache
-coherence), but the problem has the same structure, and the structure is what the
-analytical model describes.
+four-channel 67.5 GB/s. MEMoE-RT moves whole layers in bulk, which depends on
+bandwidth rather than per-access latency, so the problem has the same structure,
+and the structure is what the analytical model describes.
 
 ## Constraints enforced by tests
 
@@ -204,7 +262,7 @@ A reviewer will check these first, so they are assertions in the test suite.
 
 - CXL bandwidth is always the measured sustained 18-52 GB/s range, never the
   theoretical link rate. `test_cxl_bandwidth_within_measured_range`
-- CXL 3.0 pooling is pre-production. Any config using it is flagged
+- CXL 3.0 pooling is modelled. Any config using it is flagged
   `measured: false` and every result carries a MODELED note.
   `test_pooled_cxl_is_flagged_as_modeled`
 - Extrapolated bandwidth points (>52 GB/s) are marked and drawn dotted.

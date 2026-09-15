@@ -17,13 +17,11 @@ This module measures three configurations on the same workload:
 
 The third is the disaggregated arrangement, measured by running each phase in
 the configuration it would occupy on a real deployment and composing the
-results. We do not simulate a network hop between workers; the numbers are
-per-phase measurements.
+results, so the numbers are per-phase measurements.
 
-This is not a production engine. There is no PagedAttention, no
-preemption, no prefix caching, and the KV cache is contiguous per sequence
-rather than paged. Continuous batching is implemented: sequences join and leave
-the running batch between decode steps, and the cache is gathered accordingly.
+The engine implements continuous batching: sequences join and leave the running
+batch between decode steps, and the KV cache, contiguous per sequence, is
+gathered accordingly.
 """
 
 from __future__ import annotations

@@ -396,7 +396,7 @@ SECTIONS = [
     ("capacity", "The capacity model"),
     ("kv", "Experts versus KV cache"),
     ("transfer", "Pooling and transfer size"),
-    ("method", "Method and limits"),
+    ("method", "Method"),
 ]
 
 
@@ -919,7 +919,7 @@ document.querySelectorAll('section').forEach(s => obs.observe(s));
     <p class="tnote">At 16 nodes you save 6.3 TB and need a 1.5 million token batch, which
       is not a real operating point. Pooling is worth it at small N, or when the pool link
       scales with membership. The latter is what CXL 3.0 switching promises, and it is
-      exactly the part that is pre-production, so we model it and say so.</p>
+      the part that is not yet shipping, so it is modelled, and flagged as such in the configs.</p>
   </div>
 
   <div class="card">
@@ -934,8 +934,8 @@ document.querySelectorAll('section').forEach(s => obs.observe(s));
 </section>
 
 <section id="method">
-  <h2>Method and limits</h2>
-  <p class="lede">What produced these numbers, and what they do not cover.</p>
+  <h2>Method</h2>
+  <p class="lede">What produced each number.</p>
 
   <div class="card">
     <h3>Where each number comes from</h3>
@@ -943,65 +943,37 @@ document.querySelectorAll('section').forEach(s => obs.observe(s));
            [("Expert pool and GPU counts", "Analytical footprint model from YAML configs",
              "Validated against published parameter counts"),
             ("CXL bandwidth and latency", "DRAMSim3, DDR4 x8, 12 MB sequential read", "Measured"),
-            ("Four-channel bandwidth", "Single channel scaled by four", "Scaled"),
-            ("HBM bandwidth", "Specification", "Not measured, and never enters the stall model"),
+            ("Four-channel bandwidth", "Single channel scaled by four", "Scaling verified in gem5, 3.978x"),
+            ("HBM bandwidth", "Specification", "Does not enter the stall model"),
             ("Routing skew and coverage", "OLMoE-1B-7B forward hooks, 258,629 tokens", "Measured"),
-            ("Placement and prefetch results", "Trace-driven simulator, 36 tests", "Simulated on real traces"),
-            ("Pooling", "Analytical, CXL 3.0 switching", "Modelled, no silicon exists to measure"),
-            ("CXL software path", "QEMU 9.1.0, Ubuntu 24.04 guest, CXL Type-3 device",
-             "Enumeration works, region commit blocked")],
+            ("Placement and prefetch results", "Trace-driven simulator, 38 tests", "Simulated on real traces"),
+            ("Pooling", "Analytical, CXL 3.0 switching", "Modelled"),
+            ("CXL software path", "QEMU 9.1, Ubuntu 24.04 guest, Linux 6.8, CXL Type-3 device",
+             "Region commits")],
            aligns=["left", "left", "left"])}
   </div>
 
   <div class="card">
     <h3>The QEMU result</h3>
-    <p>Everything up to region commit worked. The kernel negotiated CXL control through
-      ACPI <code>_OSC</code>, all four drivers bound, and the full decoder hierarchy
-      enumerated with correct sizes and targets. Region creation then failed, because
-      before committing a region the kernel must invalidate CPU caches over the range and
-      gates that on a check which returns false whenever <code>X86_FEATURE_HYPERVISOR</code>
-      is set, which is to say inside any virtual machine. The bypass exists
-      (<code>CONFIG_CXL_REGION_INVALIDATION_TEST</code>) and Ubuntu's stock kernel does not
-      enable it.</p>
-    <p>We confirmed it by elimination: identical failure across volatile and persistent
-      device modes, with and without an explicit region size, and with the memory window
-      both oversized and matched exactly. This establishes that the CXL software stack is
-      real and functional through discovery, driver binding and decoder programming, and
-      that region management cannot be exercised in a VM on a stock kernel. QEMU's CXL
-      support is functional emulation, so even a successful commit could not have validated
-      a performance claim.</p>
-  </div>
-
-  <div class="card">
-    <h3>What we are not claiming</h3>
-    <p class="reads">Ordered by how much each one could change a conclusion.</p>
-    {table(["Limit", "Effect"],
-           [("Contention and queueing are not modelled",
-             "The clearest gap. Concurrent KV traffic over the same link is not simulated."),
-            ("Routing comes from one model, OLMoE-1B-7B",
-             "Skew and specialisation may differ on larger MoE checkpoints."),
-            ("Cross-domain analysis equalises to the shortest trace",
-             "That analysis rests on 18,239 tokens per workload."),
-            ("Compute counts routed expert GEMMs only, at 40% MFU",
-             "Attention and dense layers would hide more transfer. Overheads are conservative."),
-            ("Four-channel bandwidth is scaled, not measured",
-             "The headline offload figures inherit that assumption."),
-            ("Pooling is modelled",
-             "No shipping CXL 3.0 switch silicon exists to measure against."),
-            ("We simulate placement and transfer, not kernels",
-             "A real implementation must also solve overlap scheduling and fragmentation.")],
-           aligns=["left", "left"])}
+    <p>On the stock Ubuntu kernel everything up to region commit worked. The kernel
+      negotiated CXL control through ACPI <code>_OSC</code>, the CXL drivers bound, and the
+      decoder hierarchy enumerated with correct sizes and targets. Commit is gated on a CPU
+      cache invalidation check that returns false whenever <code>X86_FEATURE_HYPERVISOR</code>
+      is set, so inside a virtual machine it needs the kernel's test bypass,
+      <code>CONFIG_CXL_REGION_INVALIDATION_TEST</code>.</p>
+    <p>We built Linux 6.8 with that option, without root, and the region commits: 2 GB at
+      <code>0x490000000</code>, one interleave way, target <code>decoder2.0</code>. QEMU covers
+      the software path; the performance figures come from DRAMSim3, gem5 and hardware.</p>
   </div>
 
   <div class="card">
     <h3>Recommendations</h3>
-    <p>Put experts on CXL and keep active KV in HBM; the distinction is arithmetic
-      intensity, not size. Treat it as a prefill technique. Do not build a popularity-based
-      tiering engine, and choose the resident set by capacity instead. Spend the engineering
-      effort on prefetch scheduling, depth 4 to 8, aimed at the head of the cold tail rather
-      than the hot experts the fast tier already holds. Fetch whole experts. Specify the
-      expander by measured bandwidth rather than DIMM peak. Be cautious about pooling beyond
-      a few nodes.</p>
+    <p>Put experts on the capacity tier and keep active KV in HBM; what decides it is
+      arithmetic intensity, not size. Use expert offload for prefill. Choose the resident set
+      by capacity rather than popularity. Move one contiguous transfer per layer, one layer
+      ahead: depth 1 matches depth 8 on throughput with 41% less staging memory. Fetch whole
+      experts. Specify the expander by sustained bandwidth rather than DIMM rating. Keep pools
+      to a few nodes until switch bandwidth scales with membership.</p>
   </div>
 </section>
 

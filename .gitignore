@@ -10,6 +10,12 @@ venv/
 *.log
 gem5-src/
 .pytest_cache/
+paper/*.aux
+paper/*.out
+paper/*.toc
+paper/*.fdb_latexmk
+paper/*.fls
+paper/*.synctex.gz
 
 # Large inputs that are re-derivable or fetched, not authored here.
 traces/*.parquet

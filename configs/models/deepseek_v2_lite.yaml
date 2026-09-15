@@ -1,0 +1,21 @@
+name: DeepSeek-V2-Lite
+d_model: 2048
+d_ff_expert: 1408
+n_experts: 64
+top_k: 6
+n_layers: 27
+n_moe_layers: 26
+n_shared_experts: 2
+d_ff_dense: 10944
+n_heads: 16
+n_kv_heads: 16
+d_head: 128
+vocab_size: 102400
+dtype_bytes: 2.0
+nonexpert_params_override: 860000000
+note: "deepseek-ai/DeepSeek-V2-Lite, the checkpoint MEMoE-RT runs on the A10.
+  15.7B total, first block dense, multi-head latent attention. The override is
+  total params minus routed and shared experts, since MLA's low-rank KV
+  compression does not fit the naive attention formula. Footprint model gives
+  31.41 GB of weights and a 28.79 GB routed pool, matching what the runtime
+  reports on the live checkpoint."

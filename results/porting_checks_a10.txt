@@ -1,0 +1,53 @@
+MEMoE-RT correctness checks on the NVIDIA A10 (PCIe 4.0 x16, 23 GB), 2026-09-15
+Launchers: scripts/run_runtime.sh (transformers 5.x unless noted) and scripts/run_deepseek.sh.
+Small checkpoints built with scripts/make_tiny_moe.py (random init, bfloat16).
+
+######## tiny-qwen3moe (transformers 5, fused path)
+vs reference:  max abs diff 0.02008   relative 9.25e-03
+vs reference:  argmax agreement 99.8047%   in reference top-5 100.0000%
+offload invariance: 25% vs 100% resident, max abs diff 0.00000
+PASS
+exit 0
+######## tiny-mixtral-v5 (transformers 5, fused path)
+vs reference:  max abs diff 0.27051   relative 1.31e-01
+vs reference:  argmax agreement 96.6797%   in reference top-5 100.0000%
+offload invariance: 25% vs 100% resident, max abs diff 0.00000
+PASS
+exit 0
+######## tiny-mixtral-v4 (transformers 4.44, ModuleList path)
+vs reference:  max abs diff 0.00000   relative 0.00e+00
+vs reference:  argmax agreement 100.0000%   in reference top-5 100.0000%
+offload invariance: 25% vs 100% resident, max abs diff 0.00000
+PASS
+exit 0
+######## OLMoE check (regression)
+vs reference:  max abs diff 2.01562   relative 8.31e-02
+vs reference:  argmax agreement 89.4531%   in reference top-5 99.4141%
+offload invariance: 25% vs 100% resident, max abs diff 0.00000
+PASS
+exit 0
+wrote /tmp/memoe-port/t-qwen: qwen3_moe, 83.7M parameters, experts as fused tensors (transformers 5.17.0)
+wrote /tmp/memoe-port/t-mixtral-v4: mixtral, 83.7M parameters, experts as ModuleList (transformers 4.44.2)
+######## make_tiny_moe qwen3_moe, default check
+vs reference:  max abs diff 0.02008   relative 9.25e-03
+vs reference:  argmax agreement 99.8047%   in reference top-5 100.0000%
+offload invariance: 25% vs 100% resident, max abs diff 0.00000
+PASS
+exit 0
+######## make_tiny_moe qwen3_moe, --check-residency 0.0 0.5
+unmodified model skipped; comparing two tiered runs
+offload invariance: 0% vs 50% resident, max abs diff 0.00000
+PASS
+exit 0
+######## make_tiny_moe mixtral (4.44 ModuleList), --check-residency 0.0 0.5
+unmodified model skipped; comparing two tiered runs
+offload invariance: 0% vs 50% resident, max abs diff 0.00000
+PASS
+exit 0
+######## DeepSeek-V2-Lite, scripts/run_deepseek.sh --check (25% vs 0% resident, ModuleList path)
+max abs diff 0.00000   argmax agreement 100.0000%
+PASS
+exit 0
+
+######## link bandwidth, scripts/measure_link.py
+plateau 25.23 GB/s, reached by 4 MB transfers

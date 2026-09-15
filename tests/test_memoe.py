@@ -280,3 +280,36 @@ def test_router_detection_without_torch_is_graceful():
 
     found = find_routers(FakeModel(), n_experts=64)
     assert [n for n, _ in found] == ["layers.0.mlp.gate", "layers.1.mlp.router"]
+
+
+# ------------------------------------------------------------ porting planner
+REPO = Path(__file__).resolve().parent.parent
+
+def _planner():
+    import importlib.util
+    spec = importlib.util.spec_from_file_location(
+        "plan_offload", REPO / "scripts" / "plan_offload.py")
+    mod = importlib.util.module_from_spec(spec)
+    sys.modules[spec.name] = mod      # dataclasses look the module up by name
+    spec.loader.exec_module(mod)
+    return mod
+
+
+def test_planner_calibration_reproduces_the_reported_crossover():
+    """Calibrating on the committed resident run must give back 33.7 TFLOP/s
+    and the B* = 4,626 the report checks against the runtime and SystemC."""
+    from memoe.memory import GPU, MemorySystem, Tier
+    plan = _planner()
+    model = load_model("olmoe")
+    cal = plan.calibrate(REPO / "results" / "runtime_bench_all.csv", model, 4096)
+    assert abs(cal.flops / 1e12 - 33.7) < 0.1
+    mem = MemorySystem("t", Tier("GPU", 32.6, 0.0, 0.0), Tier("link", 0.0, 40.8, 0.0))
+    sim = Simulator(model, mem, GPU(name="t", eff_flops_measured=cal.flops))
+    assert abs(sim.critical_batch(expert_hit_rate=0.3, overhead=1.0) - 4626) < 10
+
+
+def test_deepseek_v2_lite_config_matches_the_live_checkpoint():
+    """MEMoE-RT reports 31.41 GB of weights and a 28.79 GB routed pool."""
+    m = load_model("deepseek_v2_lite")
+    assert abs(m.total_bytes / 1e9 - 31.41) < 0.05
+    assert abs(m.routed_expert_bytes / 1e9 - 28.79) < 0.05

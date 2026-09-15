@@ -58,14 +58,19 @@ class MemorySystem:
 @dataclass
 class GPU:
     name: str
-    peak_flops: float     # dense bf16 FLOP/s
-    mfu: float = 0.40     # achieved fraction of peak
+    peak_flops: float = 0.0     # dense bf16 FLOP/s
+    mfu: float = 0.40           # achieved fraction of peak
     hbm_gb: float = 80.0
+    # what a resident run on this card actually sustains, in the same FLOP
+    # accounting the stall model uses. scripts/plan_offload.py --calibrate
+    # derives it from a measured run; it beats any rating times an MFU guess.
+    eff_flops_measured: float = 0.0
+    link_gbs: float = 0.0       # measured host-to-device, scripts/measure_link.py
     note: str = ""
 
     @property
     def eff_flops(self):
-        return self.peak_flops * self.mfu
+        return self.eff_flops_measured or self.peak_flops * self.mfu
 
     @classmethod
     def from_dict(cls, d):

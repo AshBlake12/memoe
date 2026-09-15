@@ -1,0 +1,8 @@
+name: RTX PRO 4500 Blackwell
+hbm_gb: 32.6
+link_gbs: 40.8
+eff_flops_measured: 33700000000000
+note: "PCIe 5.0 x16. link_gbs is the measured host-to-device plateau.
+  eff_flops_measured is calibrated from the fully resident OLMoE-1B-7B run at
+  batch 4096 (results/runtime_bench_all.csv), the same calibration the report
+  uses for B*."

@@ -5,7 +5,7 @@
 #
 # Components:
 #   gpu            the card and link
-#   tests          36 tests
+#   tests          38 tests
 #   olmoe-check    OLMoE: tiered output vs untouched reference
 #   olmoe          OLMoE: fully resident vs fully offloaded at batch 16384
 #   deepseek-check DeepSeek-V2-Lite: 25% vs 0% resident agree

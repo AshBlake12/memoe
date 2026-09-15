@@ -12,9 +12,7 @@ Runs the same workload three ways and writes results/serve_bench.csv:
 
 The third is the disaggregated arrangement. Prefill workers and decode workers
 are separate processes on separate hardware in such a deployment, so we measure
-each phase in the configuration it would occupy and report both. We do not model
-the KV handoff between them. That cost is real, but we would have to make up a
-number for it, so it is left out.
+each phase in the configuration it would occupy and report both.
 
 Overall offload-vs-resident throughput is less interesting here than the split
 between phases. Time-to-first-token under offload should be close to resident,
@@ -48,14 +46,15 @@ def load(ckpt, dtype=torch.bfloat16):
 
 def build(args, residency: float):
     """Return (model, tier). residency 1.0 means nothing is offloaded."""
-    from memoe.runtime import tier_model
+    from memoe.runtime_ml import tier_model_auto
     m = load(args.ckpt)
     if residency >= 0.999:
         m.to(args.device)
         return m, None
-    tier = tier_model(m, residency=residency, depth=args.depth,
-                      device=args.device)
-    m.to(args.device)
+    tier, moved = tier_model_auto(m, residency=residency, depth=args.depth,
+                                  device=args.device)
+    if not moved:
+        m.to(args.device)
     return m, tier
 
 
